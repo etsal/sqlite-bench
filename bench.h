@@ -100,6 +100,9 @@ extern bool FLAGS_transaction;
 // If true, we enable Write-Ahead Logging
 extern bool FLAGS_WAL_enabled;
 
+// Configure how many pages to use for WAL
+extern int FLAGS_WAL_size;
+
 // Use the db with the following name.
 extern char* FLAGS_db;
 

@@ -58,6 +58,9 @@ bool FLAGS_transaction;
 // If true, we enable Write-Ahead Logging
 bool FLAGS_WAL_enabled;
 
+// Configure how many pages to use for WAL
+int FLAGS_WAL_size;
+
 // Use the db with the following name.
 char* FLAGS_db;
 
@@ -99,11 +102,12 @@ void init() {
   FLAGS_histogram = false;
   FLAGS_raw = false,
   FLAGS_compression_ratio = 0.5;
-  FLAGS_page_size = 1024;
+  FLAGS_page_size = 4096;
   FLAGS_num_pages = 4096;
   FLAGS_use_existing_db = false;
   FLAGS_transaction = true;
   FLAGS_WAL_enabled = true;
+  FLAGS_WAL_size = 1024;
   FLAGS_db = NULL;
 }
 
@@ -123,6 +127,7 @@ void print_usage(const char* argv0) {
   fprintf(stderr, "  --page_size=INT\t\tpage size\n");
   fprintf(stderr, "  --num_pages=INT\t\tnumber of pages\n");
   fprintf(stderr, "  --WAL_enabled={0,1}\t\tenable WAL\n");
+  fprintf(stderr, "  --WAL_size=INT\t\tWAL size in pages\n");
   fprintf(stderr, "  --db=PATH\t\t\tpath to location databases are created\n");
   fprintf(stderr, "  --help\t\t\tshow this help\n");
   fprintf(stderr, "\n");
@@ -180,6 +185,8 @@ int main(int argc, char** argv) {
     } else if (sscanf(argv[i], "--WAL_enabled=%d%c", &n, &junk) == 1 &&
                (n == 0 || n == 1)) {
       FLAGS_WAL_enabled = n;
+    } else if (sscanf(argv[i], "--WAL_size=%d%c", &n, &junk) == 1) {
+      FLAGS_WAL_size = n;
     } else if (strncmp(argv[i], "--db=", 5) == 0) {
       FLAGS_db = argv[i] + 5;
     } else if (!strcmp(argv[i], "--help")) {

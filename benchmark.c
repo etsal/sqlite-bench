@@ -356,12 +356,13 @@ void benchmark_open() {
   /* Change journal mode to WAL if WAL enabled flag is on */
   if (FLAGS_WAL_enabled) {
     char* WAL_stmt = "PRAGMA journal_mode = WAL";
+    char WAL_size[100];
+    snprintf(WAL_size, sizeof(WAL_size), "PRAGMA wal_autocheckpoint = %d",
+              FLAGS_WAL_size);
 
-    /* Default cache size is a combined 4 MB */
-    char* WAL_checkpoint = "PRAGMA wal_autocheckpoint = 4096";
     status = sqlite3_exec(db_, WAL_stmt, NULL, NULL, &err_msg);
     exec_error_check(status, err_msg);
-    status = sqlite3_exec(db_, WAL_checkpoint, NULL, NULL, &err_msg);
+    status = sqlite3_exec(db_, WAL_size, NULL, NULL, &err_msg);
     exec_error_check(status, err_msg);
   }
 
