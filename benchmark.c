@@ -448,10 +448,44 @@ void benchmark_open() {
   stmt_prepare();
 }
 
+void benchmark_writebatch(int iter, int order, int state,
+                  int num_entries, int value_size, int entries_per_batch) {
+
+  char key[100];
+  char *value;
+  int status;
+  int j, k;
+
+  sqlite3_stmt *replace_stmt = stmts[STMT_REPLACE];
+  /* Create and execute SQL statements */
+  for (j = 0; j < entries_per_batch; j++) {
+    value = rand_gen_generate(&gen_, value_size);
+
+    /* Create values for key-value pair */
+    k = (order == SEQUENTIAL) ? iter + j :
+                  (rand_next(&rand_) % num_entries);
+    snprintf(key, sizeof(key), "%016d", k);
+
+    /* Bind KV values into replace_stmt */
+    status = sqlite3_bind_blob(replace_stmt, 1, key, 16, SQLITE_STATIC);
+    error_check(status);
+    status = sqlite3_bind_blob(replace_stmt, 2, value,
+                                value_size, SQLITE_STATIC);
+    error_check(status);
+
+    /* Execute replace_stmt */
+    bytes_ += value_size + strlen(key);
+    status = sqlite3_step(replace_stmt);
+    step_error_check(status);
+
+    stmt_clear_and_reset(replace_stmt);
+    finished_single_op();
+  }
+}
+
 void benchmark_write(bool write_sync, int order, int state,
                   int num_entries, int value_size, int entries_per_batch) {
   bool transaction = FLAGS_transaction && (entries_per_batch > 1);
-  int status;
 
   /* Create new database if state == FRESH */
   if (state == FRESH) {
@@ -472,7 +506,6 @@ void benchmark_write(bool write_sync, int order, int state,
     message_ = msg;
   }
 
-  sqlite3_stmt *replace_stmt = stmts[STMT_REPLACE];
   sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
   sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
 
@@ -483,31 +516,7 @@ void benchmark_write(bool write_sync, int order, int state,
     if (transaction)
       stmt_runonce(begin_trans_stmt);
 
-    /* Create and execute SQL statements */
-    for (int j = 0; j < entries_per_batch; j++) {
-      const char* value = rand_gen_generate(&gen_, value_size);
-
-      /* Create values for key-value pair */
-      const int k = (order == SEQUENTIAL) ? i + j :
-                    (rand_next(&rand_) % num_entries);
-      char key[100];
-      snprintf(key, sizeof(key), "%016d", k);
-
-      /* Bind KV values into replace_stmt */
-      status = sqlite3_bind_blob(replace_stmt, 1, key, 16, SQLITE_STATIC);
-      error_check(status);
-      status = sqlite3_bind_blob(replace_stmt, 2, value,
-                                  value_size, SQLITE_STATIC);
-      error_check(status);
-
-      /* Execute replace_stmt */
-      bytes_ += value_size + strlen(key);
-      status = sqlite3_step(replace_stmt);
-      step_error_check(status);
-
-      stmt_clear_and_reset(replace_stmt);
-      finished_single_op();
-    }
+    benchmark_writebatch(i, order, state, num_entries, value_size, entries_per_batch);
 
     /* End write transaction */
     if (transaction)
