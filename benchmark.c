@@ -350,15 +350,26 @@ void stmt_prepare(sqlite3_stmt **stmts[]) {
   }
 }
 
-void set_sync(bool write_sync) {
-  /* Check for synchronous flag in options */
-  char* err_msg = NULL;
-  int status;
+#define STMT_SIZE (1024)
 
-  char* sync_stmt = (write_sync) ? "PRAGMA synchronous = FULL" :
-                                    "PRAGMA synchronous = OFF";
-  status = sqlite3_exec(db_, sync_stmt, NULL, NULL, &err_msg);
-  exec_error_check(status, err_msg);
+void set_pragma_str(char *pragma, char *val) {
+	char stmt[STMT_SIZE];
+	char *err_msg;
+	int status;
+
+	snprintf(stmt, STMT_SIZE, "PRAGMA %s = %s", pragma, val);
+	status = sqlite3_exec(db_, stmt, NULL, NULL, &err_msg);
+	exec_error_check(status, err_msg);
+}
+
+void set_pragma_int(char *pragma, int val) {
+	char stmt[STMT_SIZE];
+	char *err_msg;
+	int status;
+
+	snprintf(stmt, STMT_SIZE, "PRAGMA %s = %d", pragma, val);
+	status = sqlite3_exec(db_, stmt, NULL, NULL, &err_msg);
+	exec_error_check(status, err_msg);
 }
 
 void benchmark_open() {
@@ -382,32 +393,16 @@ void benchmark_open() {
   }
 
   /* Change SQLite cache size */
-  char cache_size[100];
-  snprintf(cache_size, sizeof(cache_size), "PRAGMA cache_size = %d",
-            FLAGS_num_pages);
-  status = sqlite3_exec(db_, cache_size, NULL, NULL, &err_msg);
-  exec_error_check(status, err_msg);
+  set_pragma_int("cache_size", FLAGS_num_pages);
 
   /* FLAGS_page_size is defaulted to 1024 */
-  if (FLAGS_page_size != 1024) {
-    char page_size[100];
-    snprintf(page_size, sizeof(page_size), "PRAGMA page_size = %d",
-              FLAGS_page_size);
-    status = sqlite3_exec(db_, page_size, NULL, NULL, &err_msg);
-    exec_error_check(status, err_msg);
-  }
+  if (FLAGS_page_size != 1024)
+    set_pragma_int("page_size", FLAGS_page_size);
 
   /* Change journal mode to WAL if WAL enabled flag is on */
   if (FLAGS_WAL_enabled) {
-    char* WAL_stmt = "PRAGMA journal_mode = WAL";
-    char WAL_size[100];
-    snprintf(WAL_size, sizeof(WAL_size), "PRAGMA wal_autocheckpoint = %d",
-              FLAGS_WAL_size);
-
-    status = sqlite3_exec(db_, WAL_stmt, NULL, NULL, &err_msg);
-    exec_error_check(status, err_msg);
-    status = sqlite3_exec(db_, WAL_size, NULL, NULL, &err_msg);
-    exec_error_check(status, err_msg);
+    set_pragma_str("journal_mode", "WAL");
+    set_pragma_int("wal_autocheckpoint", FLAGS_WAL_size);
   }
 
   /* Change locking mode to exclusive and create tables/index for database */
@@ -448,7 +443,8 @@ void benchmark_write(bool write_sync, int order, int state,
   sqlite3_stmt *replace_stmt, *begin_trans_stmt, *end_trans_stmt;
   sqlite3_stmt **stmts[STMT_TYPES] = { &begin_trans_stmt, &end_trans_stmt, NULL, &replace_stmt };
   stmt_prepare(stmts);
-  set_sync(write_sync);
+
+  set_pragma_str("synchronous", (write_sync) ? "FULL" : "OFF");
 
   bool transaction = (entries_per_batch > 1);
   for (int i = 0; i < num_entries; i += entries_per_batch) {
