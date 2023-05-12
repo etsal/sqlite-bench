@@ -515,38 +515,46 @@ void benchmark_write(bool write_sync, int order, int state,
   }
 }
 
+void benchmark_readbatch(int iter, int order, int entries_per_batch)
+{
+  sqlite3_stmt *read_stmt = stmts[STMT_READ];
+  char key[100];
+  int status;
+  int j, k;
+
+  /* Create and execute SQL statements */
+  for (j = 0; j < entries_per_batch; j++) {
+    /* Create key value */
+    k = (order == SEQUENTIAL) ? iter + j : (rand_next(&rand_) % reads_);
+    snprintf(key, sizeof(key), "%016d", k);
+
+    /* Bind key value into read_stmt */
+    status = sqlite3_bind_blob(read_stmt, 1, key, 16, SQLITE_STATIC);
+    error_check(status);
+    
+    /* Execute read statement */
+    while ((status = sqlite3_step(read_stmt)) == SQLITE_ROW) {}
+    step_error_check(status);
+
+    /* Reset SQLite statement for another use */
+    stmt_clear_and_reset(read_stmt);
+    finished_single_op();
+  }
+}
+
 void benchmark_read(int order, int entries_per_batch) {
   bool transaction = FLAGS_transaction && (entries_per_batch > 1);
-  int status;
+  int i;
 
-  sqlite3_stmt *read_stmt = stmts[STMT_READ];
   sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
   sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
 
-  for (int i = 0; i < reads_; i += entries_per_batch) {
+  for (i = 0; i < reads_; i += entries_per_batch) {
     /* Begin read transaction */
     if (transaction)
       stmt_runonce(begin_trans_stmt);
 
-    /* Create and execute SQL statements */
-    for (int j = 0; j < entries_per_batch; j++) {
-      /* Create key value */
-      char key[100];
-      int k = (order == SEQUENTIAL) ? i + j : (rand_next(&rand_) % reads_);
-      snprintf(key, sizeof(key), "%016d", k);
-
-      /* Bind key value into read_stmt */
-      status = sqlite3_bind_blob(read_stmt, 1, key, 16, SQLITE_STATIC);
-      error_check(status);
-      
-      /* Execute read statement */
-      while ((status = sqlite3_step(read_stmt)) == SQLITE_ROW) {}
-      step_error_check(status);
-
-      /* Reset SQLite statement for another use */
-      stmt_clear_and_reset(read_stmt);
-      finished_single_op();
-    }
+    benchmark_readbatch(i, order, entries_per_batch);
 
     /* End read transaction */
     if (transaction)
