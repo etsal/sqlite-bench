@@ -1,7 +1,6 @@
 # SQLite3 Benchmark 
 
-A fork of the SQLite3 benchmark tool for the [uKontainer](https://github.com/ukontainer/sqlite-bench) projec.
-This is a fork of C version of [benchmarks/db_bench_sqlite3.cc](https://github.com/google/leveldb/blob/main/benchmarks/db_bench_sqlite3.cc).
+A SQLite3 benchmarking tool initially forked from a benchmark for the [uKontainer](https://github.com/ukontainer/sqlite-bench) project, which itself is a C rewrite of [benchmarks/db_bench_sqlite3.cc](https://github.com/google/leveldb/blob/main/benchmarks/db_bench_sqlite3.cc).
 
 ## Building
 
