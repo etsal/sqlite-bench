@@ -300,6 +300,12 @@ void benchmark_run() {
       benchmark_read(SEQUENTIAL, 1);
     } else if (!strcmp(name, "readrandom")) {
       benchmark_read(RANDOM, 1);
+    } else if (!strcmp(name, "readwriterand")) {
+       benchmark_readwrite(write_sync, SEQUENTIAL, FRESH, num_, FLAGS_value_size, FLAGS_write_percent);
+       wal_checkpoint(db_);
+     } else if (!strcmp(name, "readwriteseq")) {
+       benchmark_readwrite(write_sync, RANDOM, FRESH, num_, FLAGS_value_size, FLAGS_write_percent);
+       wal_checkpoint(db_);
     } else if (!strcmp(name, "readrand100K")) {
       int n = reads_;
       reads_ /= 1000;
@@ -549,4 +555,9 @@ void benchmark_read(int order, int entries_per_batch) {
   error_check(status);
   status = sqlite3_finalize(end_trans_stmt);
   error_check(status);
+}
+
+void benchmark_readwrite(bool write_sync, int order, int state,
+                  int num_entries, int value_size, int write_percent) {
+	/* XXX Unimplemented */
 }
