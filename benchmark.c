@@ -366,23 +366,23 @@ void stmt_finalize(sqlite3_stmt **stmts[]) {
 #define STMT_SIZE (1024)
 
 void set_pragma_str(char *pragma, char *val) {
-	char stmt[STMT_SIZE];
-	char *err_msg;
-	int status;
-
-	snprintf(stmt, STMT_SIZE, "PRAGMA %s = %s", pragma, val);
-	status = sqlite3_exec(db_, stmt, NULL, NULL, &err_msg);
-	exec_error_check(status, err_msg);
+  char stmt[STMT_SIZE];
+  char *err_msg;
+  int status;
+  
+  snprintf(stmt, STMT_SIZE, "PRAGMA %s = %s", pragma, val);
+  status = sqlite3_exec(db_, stmt, NULL, NULL, &err_msg);
+  exec_error_check(status, err_msg);
 }
 
 void set_pragma_int(char *pragma, int val) {
-	char stmt[STMT_SIZE];
-	char *err_msg;
-	int status;
-
-	snprintf(stmt, STMT_SIZE, "PRAGMA %s = %d", pragma, val);
-	status = sqlite3_exec(db_, stmt, NULL, NULL, &err_msg);
-	exec_error_check(status, err_msg);
+  char stmt[STMT_SIZE];
+  char *err_msg;
+  int status;
+  
+  snprintf(stmt, STMT_SIZE, "PRAGMA %s = %d", pragma, val);
+  status = sqlite3_exec(db_, stmt, NULL, NULL, &err_msg);
+  exec_error_check(status, err_msg);
 }
 
 void stmt_runonce(sqlite3_stmt *stmt) {
