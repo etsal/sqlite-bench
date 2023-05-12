@@ -450,6 +450,7 @@ void benchmark_open() {
 
 void benchmark_write(bool write_sync, int order, int state,
                   int num_entries, int value_size, int entries_per_batch) {
+  bool transaction = FLAGS_transaction && (entries_per_batch > 1);
   int status;
 
   /* Create new database if state == FRESH */
@@ -477,10 +478,9 @@ void benchmark_write(bool write_sync, int order, int state,
 
   set_pragma_str("synchronous", (write_sync) ? "FULL" : "OFF");
 
-  bool transaction = (entries_per_batch > 1);
   for (int i = 0; i < num_entries; i += entries_per_batch) {
     /* Begin write transaction */
-    if (FLAGS_transaction && transaction)
+    if (transaction)
       stmt_runonce(begin_trans_stmt);
 
     /* Create and execute SQL statements */
@@ -510,22 +510,22 @@ void benchmark_write(bool write_sync, int order, int state,
     }
 
     /* End write transaction */
-    if (FLAGS_transaction && transaction)
+    if (transaction)
       stmt_runonce(end_trans_stmt);
   }
 }
 
 void benchmark_read(int order, int entries_per_batch) {
+  bool transaction = FLAGS_transaction && (entries_per_batch > 1);
   int status;
 
   sqlite3_stmt *read_stmt = stmts[STMT_READ];
   sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
   sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
 
-  bool transaction = (entries_per_batch > 1);
   for (int i = 0; i < reads_; i += entries_per_batch) {
     /* Begin read transaction */
-    if (FLAGS_transaction && transaction)
+    if (transaction)
       stmt_runonce(begin_trans_stmt);
 
     /* Create and execute SQL statements */
@@ -549,7 +549,7 @@ void benchmark_read(int order, int entries_per_batch) {
     }
 
     /* End read transaction */
-    if (FLAGS_transaction && transaction)
+    if (transaction)
       stmt_runonce(end_trans_stmt);
   }
 }
