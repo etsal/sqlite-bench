@@ -394,6 +394,16 @@ void stmt_runonce(sqlite3_stmt *stmt) {
   error_check(status);
 }
 
+void stmt_clear_and_reset(sqlite3_stmt *stmt) {
+  int status;
+
+  /* Reset SQLite statement for another use */
+  status = sqlite3_clear_bindings(stmt);
+  error_check(status);
+  status = sqlite3_reset(stmt);
+  error_check(status);
+}
+
 
 void benchmark_open() {
   assert(db_ == NULL);
@@ -493,12 +503,7 @@ void benchmark_write(bool write_sync, int order, int state,
       status = sqlite3_step(replace_stmt);
       step_error_check(status);
 
-      /* Reset SQLite statement for another use */
-      status = sqlite3_clear_bindings(replace_stmt);
-      error_check(status);
-      status = sqlite3_reset(replace_stmt);
-      error_check(status);
-
+      stmt_clear_and_reset(replace_stmt);
       finished_single_op();
     }
 
@@ -539,10 +544,7 @@ void benchmark_read(int order, int entries_per_batch) {
       step_error_check(status);
 
       /* Reset SQLite statement for another use */
-      status = sqlite3_clear_bindings(read_stmt);
-      error_check(status);
-      status = sqlite3_reset(read_stmt);
-      error_check(status);
+      stmt_clear_and_reset(read_stmt);
       finished_single_op();
     }
 
