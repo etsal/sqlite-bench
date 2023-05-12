@@ -215,6 +215,43 @@ static void stop(const char* name) {
   fflush(stderr);
 }
 
+enum stmt_types {
+	STMT_TSTART,
+	STMT_TEND,
+	STMT_READ,
+	STMT_REPLACE,
+  STMT_TYPES,
+};
+
+sqlite3_stmt *stmts[STMT_TYPES];
+
+char *stmt_text[STMT_TYPES] = {
+   "BEGIN TRANSACTION",
+   "END TRANSACTION",
+   "SELECT * FROM test WHERE key = ?",
+   "REPLACE INTO test (key, value) VALUES (?, ?)",
+};
+
+void stmt_prepare(void) {
+  int status, i;
+  for (i = 0; i < STMT_TYPES; i++) {
+    status = sqlite3_prepare_v2(db_, stmt_text[i], -1,
+                                &stmts[i], NULL);
+    error_check(status);
+  }
+}
+
+void stmt_finalize(void) {
+  int status;
+  int i;
+
+  for (i = 0; i < STMT_TYPES; i++) {
+    status = sqlite3_finalize(stmts[i]);
+    error_check(status);
+  }
+}
+
+
 void benchmark_init() {
   db_ = NULL;
   db_num_ = 0;
@@ -240,7 +277,10 @@ void benchmark_init() {
 }
 
 void benchmark_fini() {
-  int status = sqlite3_close(db_);
+  int status;
+
+  stmt_finalize();
+  status = sqlite3_close(db_);
   error_check(status);
 }
 
@@ -320,46 +360,6 @@ void benchmark_run() {
     if (known) {
       stop(name);
     }
-  }
-}
-
-enum stmt_types {
-	STMT_TSTART,
-	STMT_TEND,
-	STMT_READ,
-	STMT_REPLACE,
-  STMT_TYPES,
-};
-
-char *stmt_text[STMT_TYPES] = {
-   "BEGIN TRANSACTION",
-   "END TRANSACTION",
-   "SELECT * FROM test WHERE key = ?",
-   "REPLACE INTO test (key, value) VALUES (?, ?)",
-};
-
-void stmt_prepare(sqlite3_stmt **stmts[]) {
-  int status, i;
-  for (i = 0; i < STMT_TYPES; i++) {
-    if (stmts[i] == NULL)
-      continue;
-
-    status = sqlite3_prepare_v2(db_, stmt_text[i], -1,
-                                stmts[i], NULL);
-    error_check(status);
-  }
-}
-
-void stmt_finalize(sqlite3_stmt **stmts[]) {
-  int status;
-  int i;
-
-  for (i = 0; i < STMT_TYPES; i++) {
-    if (stmts[i] == NULL)
-      continue;
-
-    status = sqlite3_finalize(*stmts[i]);
-    error_check(status);
   }
 }
 
@@ -444,6 +444,8 @@ void benchmark_open() {
           "CREATE TABLE test (key blob, value blob, PRIMARY KEY (key))";
   status = sqlite3_exec(db_, create_stmt, NULL, NULL, &err_msg);
   exec_error_check(status, err_msg);
+
+  stmt_prepare();
 }
 
 void benchmark_write(bool write_sync, int order, int state,
@@ -469,9 +471,9 @@ void benchmark_write(bool write_sync, int order, int state,
     message_ = msg;
   }
 
-  sqlite3_stmt *replace_stmt, *begin_trans_stmt, *end_trans_stmt;
-  sqlite3_stmt **stmts[STMT_TYPES] = { &begin_trans_stmt, &end_trans_stmt, NULL, &replace_stmt };
-  stmt_prepare(stmts);
+  sqlite3_stmt *replace_stmt = stmts[STMT_REPLACE];
+  sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
+  sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
 
   set_pragma_str("synchronous", (write_sync) ? "FULL" : "OFF");
 
@@ -511,16 +513,14 @@ void benchmark_write(bool write_sync, int order, int state,
     if (FLAGS_transaction && transaction)
       stmt_runonce(end_trans_stmt);
   }
-
-  stmt_finalize(stmts);
 }
 
 void benchmark_read(int order, int entries_per_batch) {
   int status;
 
-  sqlite3_stmt *read_stmt, *begin_trans_stmt, *end_trans_stmt;
-  sqlite3_stmt **stmts[STMT_TYPES] = { &begin_trans_stmt, &end_trans_stmt, &read_stmt, NULL };
-  stmt_prepare(stmts);
+  sqlite3_stmt *read_stmt = stmts[STMT_READ];
+  sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
+  sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
 
   bool transaction = (entries_per_batch > 1);
   for (int i = 0; i < reads_; i += entries_per_batch) {
@@ -552,8 +552,6 @@ void benchmark_read(int order, int entries_per_batch) {
     if (FLAGS_transaction && transaction)
       stmt_runonce(end_trans_stmt);
   }
-
-  stmt_finalize(stmts);
 }
 
 void benchmark_readwrite(bool write_sync, int order, int state,
