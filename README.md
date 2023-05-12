@@ -1,15 +1,24 @@
-# SQLite3 Benchmark [![CircleCI](https://circleci.com/gh/ukontainer/sqlite-bench.svg?style=shield)](https://circleci.com/gh/ukontainer/sqlite-bench)
+# SQLite3 Benchmark 
 
-A SQLite3 benchmark tool.
-Most of the code comes from [LevelDB](https://github.com/google/leveldb).
-This is C version of [benchmarks/db_bench_sqlite3.cc](https://github.com/google/leveldb/blob/main/benchmarks/db_bench_sqlite3.cc).
+A fork of the SQLite3 benchmark tool for the [uKontainer](https://github.com/ukontainer/sqlite-bench) projec.
+This is a fork of C version of [benchmarks/db_bench_sqlite3.cc](https://github.com/google/leveldb/blob/main/benchmarks/db_bench_sqlite3.cc).
 
 ## Building
 
-SQLite3 is included in the repository.
+This repo is to be used for [benchmarking Aurora](https://github.com/etsal/aurora-databases) but does not depend on it.
+Compiling it is as simple as changing Makefile to point to an installed instance of SQLite.
+
 
 ```sh
-$ make
+$ make default
+```
+
+## Testing
+
+The Makefile includes a command for dead-simple benchmarking to more easily catch obvious regressions.
+
+```sh
+$ make test_default
 ```
 
 ## Usage
