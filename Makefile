@@ -8,6 +8,11 @@ CC=clang
 
 all: db_bench_mmap db_bench_default
 
+test_default: db_bench_default
+	echo `sysctl hw.model`
+	uname -a | cut -f 3,4,5
+	time ./db_bench_default --num=4000
+
 db_bench_mmap: $(SRCS) 
 	$(CC) -I$(SQLITEDIR)/build_mmap/ -L$(SQLITEDIR)/build_mmap/ $(CFLAGS) $(SQLITE_CFLAGS) $(SQLITE_CFLAGS_MMAP) $(LDFLAGS) $(SRCS) -o $@
 
@@ -20,4 +25,4 @@ clean:
 distclean: clean
 	rm -rf sqlite.*
 
-.PHONY: clean distclean
+.PHONY: all test clean distclean
