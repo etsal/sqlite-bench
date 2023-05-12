@@ -483,28 +483,40 @@ void benchmark_writebatch(int iter, int order, int state,
   }
 }
 
-void benchmark_write(bool write_sync, int order, int state,
-                  int num_entries, int value_size, int entries_per_batch) {
-  bool transaction = FLAGS_transaction && (entries_per_batch > 1);
-
+bool benchmark_setdb(void) {
   /* Create new database if state == FRESH */
-  if (state == FRESH) {
-    if (FLAGS_use_existing_db) {
-      message_ = malloc(sizeof(char) * 100);
-      strcpy(message_, "skipping (--use_existing_db is true)");
-      return;
-    }
-    sqlite3_close(db_);
-    db_ = NULL;
-    benchmark_open();
-    start();
+  if (FLAGS_use_existing_db) {
+    message_ = malloc(sizeof(char) * 100);
+    strcpy(message_, "skipping (--use_existing_db is true)");
+    return false;
   }
+  sqlite3_close(db_);
+  db_ = NULL;
+  benchmark_open();
+  start();
 
+  return true;
+}
+
+void warn_ops(int num_entries) {
   if (num_entries != num_) {
     char* msg = malloc(sizeof(char) * 100);
     snprintf(msg, 100, "(%d ops)", num_entries);
     message_ = msg;
   }
+}
+
+void benchmark_write(bool write_sync, int order, int state,
+                  int num_entries, int value_size, int entries_per_batch) {
+  bool transaction = FLAGS_transaction && (entries_per_batch > 1);
+  bool setup_success;
+
+  if (state == FRESH) {
+    setup_success = benchmark_setdb();
+    if (!setup_success)
+      return;
+  }
+  warn_ops(num_entries);
 
   sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
   sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
