@@ -429,15 +429,11 @@ void benchmark_open() {
   }
 
   /* Change locking mode to exclusive and create tables/index for database */
-  char* locking_stmt = "PRAGMA locking_mode = EXCLUSIVE";
+  set_pragma_str("locking_mode", "EXCLUSIVE");
   char* create_stmt =
           "CREATE TABLE test (key blob, value blob, PRIMARY KEY (key))";
-  char* stmt_array[] = { locking_stmt, create_stmt, NULL };
-  int stmt_array_length = sizeof(stmt_array) / sizeof(char*);
-  for (int i = 0; i < stmt_array_length; i++) {
-    status = sqlite3_exec(db_, stmt_array[i], NULL, NULL, &err_msg);
-    exec_error_check(status, err_msg);
-  }
+  status = sqlite3_exec(db_, create_stmt, NULL, NULL, &err_msg);
+  exec_error_check(status, err_msg);
 }
 
 void benchmark_write(bool write_sync, int order, int state,
