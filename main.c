@@ -61,6 +61,9 @@ bool FLAGS_WAL_enabled;
 // Configure how many pages to use for WAL
 int FLAGS_WAL_size;
 
+// Configure the write percentage for mixed read/write benchmarks.
+int FLAGS_write_percent;
+
 // Use the db with the following name.
 char* FLAGS_db;
 
@@ -95,6 +98,8 @@ void init() {
     "fillseq100K,"
     "readseq,"
     "readrand100K,"
+    "readwriterand,"
+    "readwriteseq,"
     ;
   FLAGS_num = 1000000;
   FLAGS_reads = -1;
@@ -108,6 +113,7 @@ void init() {
   FLAGS_transaction = true;
   FLAGS_WAL_enabled = true;
   FLAGS_WAL_size = 1024;
+  FLAGS_write_percent = 50;
   FLAGS_db = NULL;
 }
 
@@ -187,6 +193,8 @@ int main(int argc, char** argv) {
       FLAGS_WAL_enabled = n;
     } else if (sscanf(argv[i], "--WAL_size=%d%c", &n, &junk) == 1) {
       FLAGS_WAL_size = n;
+    } else if (sscanf(argv[i], "--write_percent=%d%c", &n, &junk) == 1) {
+      FLAGS_write_percent = n;
     } else if (strncmp(argv[i], "--db=", 5) == 0) {
       FLAGS_db = argv[i] + 5;
     } else if (!strcmp(argv[i], "--help")) {
