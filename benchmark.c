@@ -340,11 +340,11 @@ void benchmark_run() {
       benchmark_read(SEQUENTIAL, 1);
     } else if (!strcmp(name, "readrandom")) {
       benchmark_read(RANDOM, 1);
-    } else if (!strcmp(name, "readwriterand")) {
-       benchmark_readwrite(write_sync, SEQUENTIAL, FRESH, num_, FLAGS_value_size, FLAGS_write_percent);
+    } else if (!strcmp(name, "rwrandom")) {
+       benchmark_readwrite(write_sync, SEQUENTIAL, FRESH, num_, FLAGS_value_size, 1, FLAGS_write_percent);
        wal_checkpoint(db_);
-     } else if (!strcmp(name, "readwriteseq")) {
-       benchmark_readwrite(write_sync, RANDOM, FRESH, num_, FLAGS_value_size, FLAGS_write_percent);
+     } else if (!strcmp(name, "rwseq")) {
+       benchmark_readwrite(write_sync, RANDOM, FRESH, num_, FLAGS_value_size, 1, FLAGS_write_percent);
        wal_checkpoint(db_);
     } else if (!strcmp(name, "readrand100K")) {
       int n = reads_;
@@ -583,7 +583,36 @@ void benchmark_read(int order, int entries_per_batch) {
   }
 }
 
-void benchmark_readwrite(bool write_sync, int order, int state,
-                  int num_entries, int value_size, int write_percent) {
-	/* XXX Unimplemented */
+void benchmark_readwrite(bool write_sync, int order, int state, int num_entries,
+                  int value_size, int entries_per_batch, int write_percent) {
+  bool transaction = FLAGS_transaction && (entries_per_batch > 1);
+  bool setup_success;
+  int i;
+
+  if (state == FRESH) {
+    setup_success = benchmark_setdb();
+    if (!setup_success)
+      return;
+  }
+  warn_ops(num_entries);
+
+  sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
+  sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
+
+  set_pragma_str("synchronous", (write_sync) ? "FULL" : "OFF");
+
+  for (i = 0; i < num_entries; i += entries_per_batch) {
+    /* Begin write transaction */
+    if (transaction)
+      stmt_runonce(begin_trans_stmt);
+
+    if (rand_uniform(&rand_, 100) < 100)
+    	benchmark_writebatch(i, order, state, num_entries, value_size, entries_per_batch);
+    else
+    	benchmark_readbatch(i, order, entries_per_batch);
+
+    /* End write transaction */
+    if (transaction)
+      stmt_runonce(end_trans_stmt);
+  }
 }

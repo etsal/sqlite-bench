@@ -87,19 +87,18 @@ void init() {
     "fillseq,"
     "fillseqsync,"
     "fillseqbatch,"
+    "fillseq100K,"
     "fillrandom,"
     "fillrandsync,"
     "fillrandbatch,"
+    "fillrand100K,"
     "overwrite,"
     "overwritebatch,"
     "readrandom,"
     "readseq,"
-    "fillrand100K,"
-    "fillseq100K,"
-    "readseq,"
     "readrand100K,"
-    "readwriterand,"
-    "readwriteseq,"
+    "rwrandom,"
+    "rwseq,"
     ;
   FLAGS_num = 1000000;
   FLAGS_reads = -1;
