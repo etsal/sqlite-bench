@@ -385,6 +385,16 @@ void set_pragma_int(char *pragma, int val) {
 	exec_error_check(status, err_msg);
 }
 
+void stmt_runonce(sqlite3_stmt *stmt) {
+  int status;
+
+  status = sqlite3_step(stmt);
+  step_error_check(status);
+  status = sqlite3_reset(stmt);
+  error_check(status);
+}
+
+
 void benchmark_open() {
   assert(db_ == NULL);
 
@@ -462,12 +472,8 @@ void benchmark_write(bool write_sync, int order, int state,
   bool transaction = (entries_per_batch > 1);
   for (int i = 0; i < num_entries; i += entries_per_batch) {
     /* Begin write transaction */
-    if (FLAGS_transaction && transaction) {
-      status = sqlite3_step(begin_trans_stmt);
-      step_error_check(status);
-      status = sqlite3_reset(begin_trans_stmt);
-      error_check(status);
-    }
+    if (FLAGS_transaction && transaction)
+      stmt_runonce(begin_trans_stmt);
 
     /* Create and execute SQL statements */
     for (int j = 0; j < entries_per_batch; j++) {
@@ -501,12 +507,8 @@ void benchmark_write(bool write_sync, int order, int state,
     }
 
     /* End write transaction */
-    if (FLAGS_transaction && transaction) {
-      status = sqlite3_step(end_trans_stmt);
-      step_error_check(status);
-      status = sqlite3_reset(end_trans_stmt);
-      error_check(status);
-    }
+    if (FLAGS_transaction && transaction)
+      stmt_runonce(end_trans_stmt);
   }
 
   stmt_finalize(stmts);
@@ -522,12 +524,8 @@ void benchmark_read(int order, int entries_per_batch) {
   bool transaction = (entries_per_batch > 1);
   for (int i = 0; i < reads_; i += entries_per_batch) {
     /* Begin read transaction */
-    if (FLAGS_transaction && transaction) {
-      status = sqlite3_step(begin_trans_stmt);
-      step_error_check(status);
-      status = sqlite3_reset(begin_trans_stmt);
-      error_check(status);
-    }
+    if (FLAGS_transaction && transaction)
+      stmt_runonce(begin_trans_stmt);
 
     /* Create and execute SQL statements */
     for (int j = 0; j < entries_per_batch; j++) {
@@ -553,12 +551,8 @@ void benchmark_read(int order, int entries_per_batch) {
     }
 
     /* End read transaction */
-    if (FLAGS_transaction && transaction) {
-      status = sqlite3_step(end_trans_stmt);
-      step_error_check(status);
-      status = sqlite3_reset(end_trans_stmt);
-      error_check(status);
-    }
+    if (FLAGS_transaction && transaction)
+      stmt_runonce(end_trans_stmt);
   }
 
   stmt_finalize(stmts);
