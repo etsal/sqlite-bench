@@ -323,6 +323,33 @@ void benchmark_run() {
   }
 }
 
+enum stmt_types {
+	STMT_TSTART,
+	STMT_TEND,
+	STMT_READ,
+	STMT_REPLACE,
+  STMT_TYPES,
+};
+
+char *stmt_text[STMT_TYPES] = {
+   "BEGIN TRANSACTION",
+   "END TRANSACTION",
+   "SELECT * FROM test WHERE key = ?",
+   "REPLACE INTO test (key, value) VALUES (?, ?)",
+};
+
+void stmt_prepare(sqlite3_stmt **stmts[]) {
+  int status, i;
+  for (i = 0; i < STMT_TYPES; i++) {
+    if (stmts[i] == NULL)
+      continue;
+
+    status = sqlite3_prepare_v2(db_, stmt_text[i], -1,
+                                stmts[i], NULL);
+    error_check(status);
+  }
+}
+
 void benchmark_open() {
   assert(db_ == NULL);
 
@@ -405,30 +432,17 @@ void benchmark_write(bool write_sync, int order, int state,
     message_ = msg;
   }
 
-  char* err_msg = NULL;
-  int status;
-
   sqlite3_stmt *replace_stmt, *begin_trans_stmt, *end_trans_stmt;
-  char* replace_str = "REPLACE INTO test (key, value) VALUES (?, ?)";
-  char* begin_trans_str = "BEGIN TRANSACTION";
-  char* end_trans_str = "END TRANSACTION";
+  sqlite3_stmt **stmts[STMT_TYPES] = { &begin_trans_stmt, &end_trans_stmt, NULL, &replace_stmt };
+  stmt_prepare(stmts);
 
   /* Check for synchronous flag in options */
+  char* err_msg = NULL;
+  int status;
   char* sync_stmt = (write_sync) ? "PRAGMA synchronous = FULL" :
                                     "PRAGMA synchronous = OFF";
   status = sqlite3_exec(db_, sync_stmt, NULL, NULL, &err_msg);
   exec_error_check(status, err_msg);
-
-  /* Preparing sqlite3 statements */
-  status = sqlite3_prepare_v2(db_, replace_str, -1,
-                              &replace_stmt, NULL);
-  error_check(status);
-  status = sqlite3_prepare_v2(db_, begin_trans_str, -1,
-                              &begin_trans_stmt, NULL);
-  error_check(status);
-  status = sqlite3_prepare_v2(db_, end_trans_str, -1,
-                              &end_trans_stmt, NULL);
-  error_check(status);
 
   bool transaction = (entries_per_batch > 1);
   for (int i = 0; i < num_entries; i += entries_per_batch) {
@@ -490,22 +504,10 @@ void benchmark_write(bool write_sync, int order, int state,
 
 void benchmark_read(int order, int entries_per_batch) {
   int status;
+
   sqlite3_stmt *read_stmt, *begin_trans_stmt, *end_trans_stmt;
-
-  char *read_str = "SELECT * FROM test WHERE key = ?";
-  char *begin_trans_str = "BEGIN TRANSACTION";
-  char *end_trans_str = "END TRANSACTION";
-
-  /* Preparing sqlite3 statements */
-  status = sqlite3_prepare_v2(db_, begin_trans_str, -1,
-                              &begin_trans_stmt, NULL);
-  error_check(status);
-  status = sqlite3_prepare_v2(db_, end_trans_str, -1,
-                              &end_trans_stmt, NULL);
-  error_check(status);
-  status = sqlite3_prepare_v2(db_, read_str, -1,
-                              &read_stmt, NULL);
-  error_check(status);
+  sqlite3_stmt **stmts[STMT_TYPES] = { &begin_trans_stmt, &end_trans_stmt, &read_stmt, NULL };
+  stmt_prepare(stmts);
 
   bool transaction = (entries_per_batch > 1);
   for (int i = 0; i < reads_; i += entries_per_batch) {
