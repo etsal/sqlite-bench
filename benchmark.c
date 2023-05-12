@@ -350,6 +350,17 @@ void stmt_prepare(sqlite3_stmt **stmts[]) {
   }
 }
 
+void set_sync(bool write_sync) {
+  /* Check for synchronous flag in options */
+  char* err_msg = NULL;
+  int status;
+
+  char* sync_stmt = (write_sync) ? "PRAGMA synchronous = FULL" :
+                                    "PRAGMA synchronous = OFF";
+  status = sqlite3_exec(db_, sync_stmt, NULL, NULL, &err_msg);
+  exec_error_check(status, err_msg);
+}
+
 void benchmark_open() {
   assert(db_ == NULL);
 
@@ -413,6 +424,8 @@ void benchmark_open() {
 
 void benchmark_write(bool write_sync, int order, int state,
                   int num_entries, int value_size, int entries_per_batch) {
+  int status;
+
   /* Create new database if state == FRESH */
   if (state == FRESH) {
     if (FLAGS_use_existing_db) {
@@ -435,14 +448,7 @@ void benchmark_write(bool write_sync, int order, int state,
   sqlite3_stmt *replace_stmt, *begin_trans_stmt, *end_trans_stmt;
   sqlite3_stmt **stmts[STMT_TYPES] = { &begin_trans_stmt, &end_trans_stmt, NULL, &replace_stmt };
   stmt_prepare(stmts);
-
-  /* Check for synchronous flag in options */
-  char* err_msg = NULL;
-  int status;
-  char* sync_stmt = (write_sync) ? "PRAGMA synchronous = FULL" :
-                                    "PRAGMA synchronous = OFF";
-  status = sqlite3_exec(db_, sync_stmt, NULL, NULL, &err_msg);
-  exec_error_check(status, err_msg);
+  set_sync(write_sync);
 
   bool transaction = (entries_per_batch > 1);
   for (int i = 0; i < num_entries; i += entries_per_batch) {
