@@ -350,6 +350,19 @@ void stmt_prepare(sqlite3_stmt **stmts[]) {
   }
 }
 
+void stmt_finalize(sqlite3_stmt **stmts[]) {
+  int status;
+  int i;
+
+  for (i = 0; i < STMT_TYPES; i++) {
+    if (stmts[i] == NULL)
+      continue;
+
+    status = sqlite3_finalize(*stmts[i]);
+    error_check(status);
+  }
+}
+
 #define STMT_SIZE (1024)
 
 void set_pragma_str(char *pragma, char *val) {
@@ -496,12 +509,7 @@ void benchmark_write(bool write_sync, int order, int state,
     }
   }
 
-  status = sqlite3_finalize(replace_stmt);
-  error_check(status);
-  status = sqlite3_finalize(begin_trans_stmt);
-  error_check(status);
-  status = sqlite3_finalize(end_trans_stmt);
-  error_check(status);
+  stmt_finalize(stmts);
 }
 
 void benchmark_read(int order, int entries_per_batch) {
@@ -553,12 +561,7 @@ void benchmark_read(int order, int entries_per_batch) {
     }
   }
 
-  status = sqlite3_finalize(read_stmt);
-  error_check(status);
-  status = sqlite3_finalize(begin_trans_stmt);
-  error_check(status);
-  status = sqlite3_finalize(end_trans_stmt);
-  error_check(status);
+  stmt_finalize(stmts);
 }
 
 void benchmark_readwrite(bool write_sync, int order, int state,
