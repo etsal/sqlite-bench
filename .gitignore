@@ -3,6 +3,6 @@ sqlite-bench
 *.db
 *.db-shm
 *.db-wal
-db_bench_*
+db_bench*
 sqlite3.h
 sqlite3.c
