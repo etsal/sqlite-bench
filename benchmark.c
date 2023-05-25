@@ -36,6 +36,7 @@ static void print_warnings(void);
 static void print_environment(void);
 static void start(void);
 static void stop(const char *name);
+void benchmark_prefill(int value_size, int entries);
 
 inline
 static void exec_error_check(int status, char *err_msg) {
@@ -284,9 +285,13 @@ void benchmark_fini() {
   error_check(status);
 }
 
+
 void benchmark_run() {
   print_header();
   benchmark_open();
+
+  /* Prepopulate the database. */
+  benchmark_prefill(num_ / 1000, 1000);
 
   char* benchmarks = FLAGS_benchmarks;
   while (benchmarks != NULL) {
@@ -450,6 +455,42 @@ void benchmark_open() {
 
   stmt_prepare();
 }
+
+/* 
+ *  This function is very simlar to benchmark_writebatch,
+ *  but does do benchmark-related bookkeeping because it 
+ *  is used to load the database beforehand.
+ */
+void benchmark_prefill(int value_size, int entries) {
+  char key[100];
+  char *value;
+  int status;
+  int j, k;
+
+  sqlite3_stmt *replace_stmt = stmts[STMT_REPLACE];
+  /* Create and execute SQL statements */
+  for (j = 0; j < entries; j++) {
+    value = rand_gen_generate(&gen_, value_size);
+
+    /* Create values for key-value pair */
+    k = j;
+    snprintf(key, sizeof(key), "%016d", k);
+
+    /* Bind KV values into replace_stmt */
+    status = sqlite3_bind_blob(replace_stmt, 1, key, 16, SQLITE_STATIC);
+    error_check(status);
+    status = sqlite3_bind_blob(replace_stmt, 2, value,
+                                value_size, SQLITE_STATIC);
+    error_check(status);
+
+    /* Execute replace_stmt */
+    status = sqlite3_step(replace_stmt);
+    step_error_check(status);
+
+    stmt_clear_and_reset(replace_stmt);
+  }
+}
+
 
 void benchmark_writebatch(int iter, int order, int num_entries, 
 		int value_size, int entries_per_batch) {
