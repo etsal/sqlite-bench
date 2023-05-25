@@ -425,6 +425,9 @@ void benchmark_open() {
     exit(1);
   }
 
+  /* Set the size of the mmap region. */
+  set_pragma_int("mmap_size", FLAGS_mmap_size_mb * 1024 * 1024);
+
   /* Change SQLite cache size */
   set_pragma_int("cache_size", FLAGS_num_pages);
 

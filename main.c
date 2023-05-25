@@ -64,6 +64,9 @@ int FLAGS_WAL_size;
 // Configure the write percentage for mixed read/write benchmarks.
 int FLAGS_write_percent;
 
+// Configure the maximum mmap size in MB.
+int FLAGS_mmap_size_mb;
+
 // Use the db with the following name.
 char* FLAGS_db;
 
@@ -113,6 +116,7 @@ void init() {
   FLAGS_WAL_enabled = true;
   FLAGS_WAL_size = 1024;
   FLAGS_write_percent = 50;
+  FLAGS_mmap_size_mb = 4;
   FLAGS_db = NULL;
 }
 
@@ -134,6 +138,7 @@ void print_usage(const char* argv0) {
   fprintf(stderr, "  --WAL_enabled={0,1}\t\tenable WAL\n");
   fprintf(stderr, "  --WAL_size=INT\t\tWAL size in pages\n");
   fprintf(stderr, "  --write_percent=INT\t\twrite %% in rw benchmarks\n");
+  fprintf(stderr, "  --mmap_size_mb=INT\t\tMBs of memory region size for mmap IO\n");
   fprintf(stderr, "  --db=PATH\t\t\tpath to location databases are created\n");
   fprintf(stderr, "  --help\t\t\tshow this help\n");
   fprintf(stderr, "\n");
@@ -195,6 +200,8 @@ int main(int argc, char** argv) {
       FLAGS_WAL_size = n;
     } else if (sscanf(argv[i], "--write_percent=%d%c", &n, &junk) == 1) {
       FLAGS_write_percent = n;
+    } else if (sscanf(argv[i], "--mmap_size_mb=%d%c", &n, &junk) == 1) {
+      FLAGS_mmap_size_mb = n;
     } else if (strncmp(argv[i], "--db=", 5) == 0) {
       FLAGS_db = argv[i] + 5;
     } else if (!strcmp(argv[i], "--help")) {

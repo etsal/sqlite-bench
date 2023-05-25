@@ -106,6 +106,9 @@ extern int FLAGS_WAL_size;
 // Configure the write percentage for mixed read/write benchmarks.
 int FLAGS_write_percent;
 
+// Configure the maximum mmap size in MB.
+int FLAGS_mmap_size_mb;
+
 // Use the db with the following name.
 extern char* FLAGS_db;
 
