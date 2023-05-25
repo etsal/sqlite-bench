@@ -112,21 +112,16 @@ int FLAGS_mmap_size_mb;
 // Use the db with the following name.
 extern char* FLAGS_db;
 
-/* benchmark.c */
-void benchmark_init(void);
-void benchmark_fini(void);
-void benchmark_run(void);
-void benchmark_open(void);
-void benchmark_write(bool, int, int, int, int);
-void benchmark_read(int, int);
-void benchmark_readwrite(bool, int, int, int, int, int);
-void benchmark_read_sequential(void);
-
 /* histogram.c */
 void histogram_clear(Histogram*);
 void histogram_add(Histogram*, double);
 void histogram_merge(Histogram*, const Histogram*);
 char* histogram_to_string(Histogram*);
+
+/* benchmark.c */
+void benchmark_init(void);
+void benchmark_run(void);
+void benchmark_fini(void);
 
 /* Raw */
 void raw_clear(Raw *);

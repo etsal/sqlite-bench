@@ -31,13 +31,6 @@ Random rand_;
 int done_;
 int next_report_;
 
-static void print_header(void);
-static void print_warnings(void);
-static void print_environment(void);
-static void start(void);
-static void stop(const char *name);
-void benchmark_prefill(int value_size, int entries);
-
 inline
 static void exec_error_check(int status, char *err_msg) {
   if (status != SQLITE_OK) {
@@ -70,19 +63,6 @@ static void wal_checkpoint(sqlite3* db_) {
     sqlite3_wal_checkpoint_v2(db_, NULL, SQLITE_CHECKPOINT_FULL, NULL,
                               NULL);
   }
-}
-
-static void print_header() {
-  const int kKeySize = 16;
-  print_environment();
-  fprintf(stderr, "Keys:       %d bytes each\n", kKeySize);
-  fprintf(stderr, "Values:     %d bytes each\n", FLAGS_value_size);  
-  fprintf(stderr, "Entries:    %d\n", num_);
-  fprintf(stderr, "RawSize:    %.1f MB (estimated)\n",
-            (((int64_t)(kKeySize + FLAGS_value_size) * num_)
-            / 1048576.0));
-  print_warnings();
-  fprintf(stderr, "------------------------------------------------\n");
 }
 
 static void print_warnings() {
@@ -139,6 +119,19 @@ static void print_environment() {
     free(cache_size);
   }
 #endif
+}
+
+static void print_header() {
+  const int kKeySize = 16;
+  print_environment();
+  fprintf(stderr, "Keys:       %d bytes each\n", kKeySize);
+  fprintf(stderr, "Values:     %d bytes each\n", FLAGS_value_size);  
+  fprintf(stderr, "Entries:    %d\n", num_);
+  fprintf(stderr, "RawSize:    %.1f MB (estimated)\n",
+            (((int64_t)(kKeySize + FLAGS_value_size) * num_)
+            / 1048576.0));
+  print_warnings();
+  fprintf(stderr, "------------------------------------------------\n");
 }
 
 static void start() {
@@ -252,6 +245,271 @@ void stmt_finalize(void) {
   }
 }
 
+#define STMT_SIZE (1024)
+
+static void set_pragma_str(char *pragma, char *val) {
+  char stmt[STMT_SIZE];
+  char *err_msg;
+  int status;
+  
+  snprintf(stmt, STMT_SIZE, "PRAGMA %s = %s", pragma, val);
+  status = sqlite3_exec(db_, stmt, NULL, NULL, &err_msg);
+  exec_error_check(status, err_msg);
+}
+
+static void set_pragma_int(char *pragma, int val) {
+  char stmt[STMT_SIZE];
+  char *err_msg;
+  int status;
+  
+  snprintf(stmt, STMT_SIZE, "PRAGMA %s = %d", pragma, val);
+  status = sqlite3_exec(db_, stmt, NULL, NULL, &err_msg);
+  exec_error_check(status, err_msg);
+}
+
+static void stmt_runonce(sqlite3_stmt *stmt) {
+  int status;
+
+  status = sqlite3_step(stmt);
+  step_error_check(status);
+  status = sqlite3_reset(stmt);
+  error_check(status);
+}
+
+static void stmt_clear_and_reset(sqlite3_stmt *stmt) {
+  int status;
+
+  /* Reset SQLite statement for another use */
+  status = sqlite3_clear_bindings(stmt);
+  error_check(status);
+  status = sqlite3_reset(stmt);
+  error_check(status);
+}
+
+
+static void benchmark_open() {
+  assert(db_ == NULL);
+
+  int status;
+  char file_name[100];
+  char* err_msg = NULL;
+  db_num_++;
+
+  /* Open database */
+  char *tmp_dir = FLAGS_db;
+  snprintf(file_name, sizeof(file_name),
+            "%sdbbench_sqlite3-%d.db",
+            tmp_dir,
+            db_num_);
+  status = sqlite3_open(file_name, &db_);
+  if (status) {
+    fprintf(stderr, "open error: %s\n", sqlite3_errmsg(db_));
+    exit(1);
+  }
+
+  /* Set the size of the mmap region. */
+  set_pragma_int("mmap_size", FLAGS_mmap_size_mb * 1024 * 1024);
+
+  /* Change SQLite cache size */
+  set_pragma_int("cache_size", FLAGS_num_pages);
+
+  /* FLAGS_page_size is defaulted to 1024 */
+  if (FLAGS_page_size != 1024)
+    set_pragma_int("page_size", FLAGS_page_size);
+
+  /* Change journal mode to WAL if WAL enabled flag is on */
+  if (FLAGS_WAL_enabled) {
+    set_pragma_str("journal_mode", "WAL");
+    set_pragma_int("wal_autocheckpoint", FLAGS_WAL_size);
+  }
+
+  /* Change locking mode to exclusive and create tables/index for database */
+  set_pragma_str("locking_mode", "EXCLUSIVE");
+  char* create_stmt =
+          "CREATE TABLE test (key blob, value blob, PRIMARY KEY (key))";
+  status = sqlite3_exec(db_, create_stmt, NULL, NULL, &err_msg);
+  exec_error_check(status, err_msg);
+
+  stmt_prepare();
+}
+
+/* 
+ *  This function is very simlar to benchmark_writebatch,
+ *  but does do benchmark-related bookkeeping because it 
+ *  is used to load the database beforehand.
+ */
+static void benchmark_prefill(int value_size, int entries) {
+  char key[100];
+  char *value;
+  int status;
+  int j, k;
+
+  sqlite3_stmt *replace_stmt = stmts[STMT_REPLACE];
+  /* Create and execute SQL statements */
+  for (j = 0; j < entries; j++) {
+    value = rand_gen_generate(&gen_, value_size);
+
+    /* Create values for key-value pair */
+    k = j;
+    snprintf(key, sizeof(key), "%016d", k);
+
+    /* Bind KV values into replace_stmt */
+    status = sqlite3_bind_blob(replace_stmt, 1, key, 16, SQLITE_STATIC);
+    error_check(status);
+    status = sqlite3_bind_blob(replace_stmt, 2, value,
+                                value_size, SQLITE_STATIC);
+    error_check(status);
+
+    /* Execute replace_stmt */
+    status = sqlite3_step(replace_stmt);
+    step_error_check(status);
+
+    stmt_clear_and_reset(replace_stmt);
+  }
+}
+
+
+static void benchmark_writebatch(int iter, int order, int num_entries, 
+		int value_size, int entries_per_batch) {
+
+  char key[100];
+  char *value;
+  int status;
+  int j, k;
+
+  sqlite3_stmt *replace_stmt = stmts[STMT_REPLACE];
+  /* Create and execute SQL statements */
+  for (j = 0; j < entries_per_batch; j++) {
+    value = rand_gen_generate(&gen_, value_size);
+
+    /* Create values for key-value pair */
+    k = (order == SEQUENTIAL) ? iter + j :
+                  (rand_next(&rand_) % num_entries);
+    snprintf(key, sizeof(key), "%016d", k);
+
+    /* Bind KV values into replace_stmt */
+    status = sqlite3_bind_blob(replace_stmt, 1, key, 16, SQLITE_STATIC);
+    error_check(status);
+    status = sqlite3_bind_blob(replace_stmt, 2, value,
+                                value_size, SQLITE_STATIC);
+    error_check(status);
+
+    /* Execute replace_stmt */
+    bytes_ += value_size + strlen(key);
+    status = sqlite3_step(replace_stmt);
+    step_error_check(status);
+
+    stmt_clear_and_reset(replace_stmt);
+    finished_single_op();
+  }
+}
+
+void warn_ops(int num_entries) {
+  if (num_entries != num_) {
+    char* msg = malloc(sizeof(char) * 100);
+    snprintf(msg, 100, "(%d ops)", num_entries);
+    message_ = msg;
+  }
+}
+
+static void benchmark_write(bool write_sync, int order, int num_entries,
+		int value_size, int entries_per_batch) {
+  bool transaction = FLAGS_transaction && (entries_per_batch > 1);
+
+  warn_ops(num_entries);
+
+  sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
+  sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
+
+  set_pragma_str("synchronous", (write_sync) ? "FULL" : "OFF");
+
+  for (int i = 0; i < num_entries; i += entries_per_batch) {
+    /* Begin write transaction */
+    if (transaction)
+      stmt_runonce(begin_trans_stmt);
+
+    benchmark_writebatch(i, order, num_entries, value_size, entries_per_batch);
+
+    /* End write transaction */
+    if (transaction)
+      stmt_runonce(end_trans_stmt);
+  }
+}
+
+static void benchmark_readbatch(int iter, int order, int entries_per_batch)
+{
+  sqlite3_stmt *read_stmt = stmts[STMT_READ];
+  char key[100];
+  int status;
+  int j, k;
+
+  /* Create and execute SQL statements */
+  for (j = 0; j < entries_per_batch; j++) {
+    /* Create key value */
+    k = (order == SEQUENTIAL) ? iter + j : (rand_next(&rand_) % reads_);
+    snprintf(key, sizeof(key), "%016d", k);
+
+    /* Bind key value into read_stmt */
+    status = sqlite3_bind_blob(read_stmt, 1, key, 16, SQLITE_STATIC);
+    error_check(status);
+    
+    /* Execute read statement */
+    while ((status = sqlite3_step(read_stmt)) == SQLITE_ROW) {}
+    step_error_check(status);
+
+    /* Reset SQLite statement for another use */
+    stmt_clear_and_reset(read_stmt);
+    finished_single_op();
+  }
+}
+
+static void benchmark_read(int order, int entries_per_batch) {
+  bool transaction = FLAGS_transaction && (entries_per_batch > 1);
+  int i;
+
+  sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
+  sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
+
+  for (i = 0; i < reads_; i += entries_per_batch) {
+    /* Begin read transaction */
+    if (transaction)
+      stmt_runonce(begin_trans_stmt);
+
+    benchmark_readbatch(i, order, entries_per_batch);
+
+    /* End read transaction */
+    if (transaction)
+      stmt_runonce(end_trans_stmt);
+  }
+}
+
+static void benchmark_readwrite(bool write_sync, int order, int num_entries,
+                  int value_size, int entries_per_batch, int write_percent) {
+  bool transaction = FLAGS_transaction && (entries_per_batch > 1);
+  int i;
+
+  warn_ops(num_entries);
+
+  sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
+  sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
+
+  set_pragma_str("synchronous", (write_sync) ? "FULL" : "OFF");
+
+  for (i = 0; i < num_entries; i += entries_per_batch) {
+    /* Begin write transaction */
+    if (transaction)
+      stmt_runonce(begin_trans_stmt);
+
+    if (rand_uniform(&rand_, 100) < 100)
+    	benchmark_writebatch(i, order, num_entries, value_size, entries_per_batch);
+    else
+    	benchmark_readbatch(i, order, entries_per_batch);
+
+    /* End write transaction */
+    if (transaction)
+      stmt_runonce(end_trans_stmt);
+  }
+}
 
 void benchmark_init() {
   db_ = NULL;
@@ -368,268 +626,3 @@ void benchmark_run() {
   }
 }
 
-#define STMT_SIZE (1024)
-
-void set_pragma_str(char *pragma, char *val) {
-  char stmt[STMT_SIZE];
-  char *err_msg;
-  int status;
-  
-  snprintf(stmt, STMT_SIZE, "PRAGMA %s = %s", pragma, val);
-  status = sqlite3_exec(db_, stmt, NULL, NULL, &err_msg);
-  exec_error_check(status, err_msg);
-}
-
-void set_pragma_int(char *pragma, int val) {
-  char stmt[STMT_SIZE];
-  char *err_msg;
-  int status;
-  
-  snprintf(stmt, STMT_SIZE, "PRAGMA %s = %d", pragma, val);
-  status = sqlite3_exec(db_, stmt, NULL, NULL, &err_msg);
-  exec_error_check(status, err_msg);
-}
-
-void stmt_runonce(sqlite3_stmt *stmt) {
-  int status;
-
-  status = sqlite3_step(stmt);
-  step_error_check(status);
-  status = sqlite3_reset(stmt);
-  error_check(status);
-}
-
-void stmt_clear_and_reset(sqlite3_stmt *stmt) {
-  int status;
-
-  /* Reset SQLite statement for another use */
-  status = sqlite3_clear_bindings(stmt);
-  error_check(status);
-  status = sqlite3_reset(stmt);
-  error_check(status);
-}
-
-
-void benchmark_open() {
-  assert(db_ == NULL);
-
-  int status;
-  char file_name[100];
-  char* err_msg = NULL;
-  db_num_++;
-
-  /* Open database */
-  char *tmp_dir = FLAGS_db;
-  snprintf(file_name, sizeof(file_name),
-            "%sdbbench_sqlite3-%d.db",
-            tmp_dir,
-            db_num_);
-  status = sqlite3_open(file_name, &db_);
-  if (status) {
-    fprintf(stderr, "open error: %s\n", sqlite3_errmsg(db_));
-    exit(1);
-  }
-
-  /* Set the size of the mmap region. */
-  set_pragma_int("mmap_size", FLAGS_mmap_size_mb * 1024 * 1024);
-
-  /* Change SQLite cache size */
-  set_pragma_int("cache_size", FLAGS_num_pages);
-
-  /* FLAGS_page_size is defaulted to 1024 */
-  if (FLAGS_page_size != 1024)
-    set_pragma_int("page_size", FLAGS_page_size);
-
-  /* Change journal mode to WAL if WAL enabled flag is on */
-  if (FLAGS_WAL_enabled) {
-    set_pragma_str("journal_mode", "WAL");
-    set_pragma_int("wal_autocheckpoint", FLAGS_WAL_size);
-  }
-
-  /* Change locking mode to exclusive and create tables/index for database */
-  set_pragma_str("locking_mode", "EXCLUSIVE");
-  char* create_stmt =
-          "CREATE TABLE test (key blob, value blob, PRIMARY KEY (key))";
-  status = sqlite3_exec(db_, create_stmt, NULL, NULL, &err_msg);
-  exec_error_check(status, err_msg);
-
-  stmt_prepare();
-}
-
-/* 
- *  This function is very simlar to benchmark_writebatch,
- *  but does do benchmark-related bookkeeping because it 
- *  is used to load the database beforehand.
- */
-void benchmark_prefill(int value_size, int entries) {
-  char key[100];
-  char *value;
-  int status;
-  int j, k;
-
-  sqlite3_stmt *replace_stmt = stmts[STMT_REPLACE];
-  /* Create and execute SQL statements */
-  for (j = 0; j < entries; j++) {
-    value = rand_gen_generate(&gen_, value_size);
-
-    /* Create values for key-value pair */
-    k = j;
-    snprintf(key, sizeof(key), "%016d", k);
-
-    /* Bind KV values into replace_stmt */
-    status = sqlite3_bind_blob(replace_stmt, 1, key, 16, SQLITE_STATIC);
-    error_check(status);
-    status = sqlite3_bind_blob(replace_stmt, 2, value,
-                                value_size, SQLITE_STATIC);
-    error_check(status);
-
-    /* Execute replace_stmt */
-    status = sqlite3_step(replace_stmt);
-    step_error_check(status);
-
-    stmt_clear_and_reset(replace_stmt);
-  }
-}
-
-
-void benchmark_writebatch(int iter, int order, int num_entries, 
-		int value_size, int entries_per_batch) {
-
-  char key[100];
-  char *value;
-  int status;
-  int j, k;
-
-  sqlite3_stmt *replace_stmt = stmts[STMT_REPLACE];
-  /* Create and execute SQL statements */
-  for (j = 0; j < entries_per_batch; j++) {
-    value = rand_gen_generate(&gen_, value_size);
-
-    /* Create values for key-value pair */
-    k = (order == SEQUENTIAL) ? iter + j :
-                  (rand_next(&rand_) % num_entries);
-    snprintf(key, sizeof(key), "%016d", k);
-
-    /* Bind KV values into replace_stmt */
-    status = sqlite3_bind_blob(replace_stmt, 1, key, 16, SQLITE_STATIC);
-    error_check(status);
-    status = sqlite3_bind_blob(replace_stmt, 2, value,
-                                value_size, SQLITE_STATIC);
-    error_check(status);
-
-    /* Execute replace_stmt */
-    bytes_ += value_size + strlen(key);
-    status = sqlite3_step(replace_stmt);
-    step_error_check(status);
-
-    stmt_clear_and_reset(replace_stmt);
-    finished_single_op();
-  }
-}
-
-void warn_ops(int num_entries) {
-  if (num_entries != num_) {
-    char* msg = malloc(sizeof(char) * 100);
-    snprintf(msg, 100, "(%d ops)", num_entries);
-    message_ = msg;
-  }
-}
-
-void benchmark_write(bool write_sync, int order, int num_entries,
-		int value_size, int entries_per_batch) {
-  bool transaction = FLAGS_transaction && (entries_per_batch > 1);
-
-  warn_ops(num_entries);
-
-  sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
-  sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
-
-  set_pragma_str("synchronous", (write_sync) ? "FULL" : "OFF");
-
-  for (int i = 0; i < num_entries; i += entries_per_batch) {
-    /* Begin write transaction */
-    if (transaction)
-      stmt_runonce(begin_trans_stmt);
-
-    benchmark_writebatch(i, order, num_entries, value_size, entries_per_batch);
-
-    /* End write transaction */
-    if (transaction)
-      stmt_runonce(end_trans_stmt);
-  }
-}
-
-void benchmark_readbatch(int iter, int order, int entries_per_batch)
-{
-  sqlite3_stmt *read_stmt = stmts[STMT_READ];
-  char key[100];
-  int status;
-  int j, k;
-
-  /* Create and execute SQL statements */
-  for (j = 0; j < entries_per_batch; j++) {
-    /* Create key value */
-    k = (order == SEQUENTIAL) ? iter + j : (rand_next(&rand_) % reads_);
-    snprintf(key, sizeof(key), "%016d", k);
-
-    /* Bind key value into read_stmt */
-    status = sqlite3_bind_blob(read_stmt, 1, key, 16, SQLITE_STATIC);
-    error_check(status);
-    
-    /* Execute read statement */
-    while ((status = sqlite3_step(read_stmt)) == SQLITE_ROW) {}
-    step_error_check(status);
-
-    /* Reset SQLite statement for another use */
-    stmt_clear_and_reset(read_stmt);
-    finished_single_op();
-  }
-}
-
-void benchmark_read(int order, int entries_per_batch) {
-  bool transaction = FLAGS_transaction && (entries_per_batch > 1);
-  int i;
-
-  sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
-  sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
-
-  for (i = 0; i < reads_; i += entries_per_batch) {
-    /* Begin read transaction */
-    if (transaction)
-      stmt_runonce(begin_trans_stmt);
-
-    benchmark_readbatch(i, order, entries_per_batch);
-
-    /* End read transaction */
-    if (transaction)
-      stmt_runonce(end_trans_stmt);
-  }
-}
-
-void benchmark_readwrite(bool write_sync, int order, int num_entries,
-                  int value_size, int entries_per_batch, int write_percent) {
-  bool transaction = FLAGS_transaction && (entries_per_batch > 1);
-  int i;
-
-  warn_ops(num_entries);
-
-  sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
-  sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
-
-  set_pragma_str("synchronous", (write_sync) ? "FULL" : "OFF");
-
-  for (i = 0; i < num_entries; i += entries_per_batch) {
-    /* Begin write transaction */
-    if (transaction)
-      stmt_runonce(begin_trans_stmt);
-
-    if (rand_uniform(&rand_, 100) < 100)
-    	benchmark_writebatch(i, order, num_entries, value_size, entries_per_batch);
-    else
-    	benchmark_readbatch(i, order, entries_per_batch);
-
-    /* End write transaction */
-    if (transaction)
-      stmt_runonce(end_trans_stmt);
-  }
-}
