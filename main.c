@@ -133,6 +133,7 @@ void print_usage(const char* argv0) {
   fprintf(stderr, "  --num_pages=INT\t\tnumber of pages\n");
   fprintf(stderr, "  --WAL_enabled={0,1}\t\tenable WAL\n");
   fprintf(stderr, "  --WAL_size=INT\t\tWAL size in pages\n");
+  fprintf(stderr, "  --write_percent=INT\t\twrite %% in rw benchmarks\n");
   fprintf(stderr, "  --db=PATH\t\t\tpath to location databases are created\n");
   fprintf(stderr, "  --help\t\t\tshow this help\n");
   fprintf(stderr, "\n");
