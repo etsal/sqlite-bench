@@ -117,9 +117,9 @@ void benchmark_init(void);
 void benchmark_fini(void);
 void benchmark_run(void);
 void benchmark_open(void);
-void benchmark_write(bool, int, int, int, int, int);
+void benchmark_write(bool, int, int, int, int);
 void benchmark_read(int, int);
-void benchmark_readwrite(bool, int, int, int, int, int, int);
+void benchmark_readwrite(bool, int, int, int, int, int);
 void benchmark_read_sequential(void);
 
 /* histogram.c */

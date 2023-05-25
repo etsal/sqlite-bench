@@ -305,46 +305,46 @@ void benchmark_run() {
     bool known = true;
     bool write_sync = false;
     if (!strcmp(name, "fillseq")) {
-      benchmark_write(write_sync, SEQUENTIAL, FRESH, num_, FLAGS_value_size, 1);
+      benchmark_write(write_sync, SEQUENTIAL, num_, FLAGS_value_size, 1);
       wal_checkpoint(db_);
     } else if (!strcmp(name, "fillseqbatch")) {
-      benchmark_write(write_sync, SEQUENTIAL, FRESH, num_, FLAGS_value_size, 1000);
+      benchmark_write(write_sync, SEQUENTIAL, num_, FLAGS_value_size, 1000);
       wal_checkpoint(db_);
     } else if (!strcmp(name, "fillrandom")) {
-      benchmark_write(write_sync, RANDOM, FRESH, num_, FLAGS_value_size, 1);
+      benchmark_write(write_sync, RANDOM, num_, FLAGS_value_size, 1);
       wal_checkpoint(db_);
     } else if (!strcmp(name, "fillrandbatch")) {
-      benchmark_write(write_sync, RANDOM, FRESH, num_, FLAGS_value_size, 1000);
+      benchmark_write(write_sync, RANDOM, num_, FLAGS_value_size, 1000);
       wal_checkpoint(db_);
     } else if (!strcmp(name, "overwrite")) {
-      benchmark_write(write_sync, RANDOM, EXISTING, num_, FLAGS_value_size, 1);
+      benchmark_write(write_sync, RANDOM, num_, FLAGS_value_size, 1);
       wal_checkpoint(db_);
     } else if (!strcmp(name, "overwritebatch")) {
-      benchmark_write(write_sync, RANDOM, EXISTING, num_, FLAGS_value_size, 1000);
+      benchmark_write(write_sync, RANDOM, num_, FLAGS_value_size, 1000);
       wal_checkpoint(db_);
     } else if (!strcmp(name, "fillrandsync")) {
       write_sync = true;
-      benchmark_write(write_sync, RANDOM, FRESH, num_ / 100, FLAGS_value_size, 1);
+      benchmark_write(write_sync, RANDOM, num_ / 100, FLAGS_value_size, 1);
       wal_checkpoint(db_);
     } else if (!strcmp(name, "fillseqsync")) {
       write_sync = true;
-      benchmark_write(write_sync, SEQUENTIAL, FRESH, num_ / 100, FLAGS_value_size, 1);
+      benchmark_write(write_sync, SEQUENTIAL, num_ / 100, FLAGS_value_size, 1);
       wal_checkpoint(db_);
     } else if (!strcmp(name, "fillrand100K")) {
-      benchmark_write(write_sync, RANDOM, FRESH, num_ / 1000, 100 * 1000, 1);
+      benchmark_write(write_sync, RANDOM, num_ / 1000, 100 * 1000, 1);
       wal_checkpoint(db_);
     } else if (!strcmp(name, "fillseq100K")) {
-      benchmark_write(write_sync, SEQUENTIAL, FRESH, num_ / 1000, 100 * 1000, 1);
+      benchmark_write(write_sync, SEQUENTIAL, num_ / 1000, 100 * 1000, 1);
       wal_checkpoint(db_);
     } else if (!strcmp(name, "readseq")) {
       benchmark_read(SEQUENTIAL, 1);
     } else if (!strcmp(name, "readrandom")) {
       benchmark_read(RANDOM, 1);
     } else if (!strcmp(name, "rwrandom")) {
-       benchmark_readwrite(write_sync, SEQUENTIAL, FRESH, num_, FLAGS_value_size, 1, FLAGS_write_percent);
+       benchmark_readwrite(write_sync, SEQUENTIAL, num_, FLAGS_value_size, 1, FLAGS_write_percent);
        wal_checkpoint(db_);
      } else if (!strcmp(name, "rwseq")) {
-       benchmark_readwrite(write_sync, RANDOM, FRESH, num_, FLAGS_value_size, 1, FLAGS_write_percent);
+       benchmark_readwrite(write_sync, RANDOM, num_, FLAGS_value_size, 1, FLAGS_write_percent);
        wal_checkpoint(db_);
     } else if (!strcmp(name, "readrand100K")) {
       int n = reads_;
@@ -451,8 +451,8 @@ void benchmark_open() {
   stmt_prepare();
 }
 
-void benchmark_writebatch(int iter, int order, int state,
-                  int num_entries, int value_size, int entries_per_batch) {
+void benchmark_writebatch(int iter, int order, int num_entries, 
+		int value_size, int entries_per_batch) {
 
   char key[100];
   char *value;
@@ -486,21 +486,6 @@ void benchmark_writebatch(int iter, int order, int state,
   }
 }
 
-bool benchmark_setdb(void) {
-  /* Create new database if state == FRESH */
-  if (FLAGS_use_existing_db) {
-    message_ = malloc(sizeof(char) * 100);
-    strcpy(message_, "skipping (--use_existing_db is true)");
-    return false;
-  }
-  sqlite3_close(db_);
-  db_ = NULL;
-  benchmark_open();
-  start();
-
-  return true;
-}
-
 void warn_ops(int num_entries) {
   if (num_entries != num_) {
     char* msg = malloc(sizeof(char) * 100);
@@ -509,16 +494,10 @@ void warn_ops(int num_entries) {
   }
 }
 
-void benchmark_write(bool write_sync, int order, int state,
-                  int num_entries, int value_size, int entries_per_batch) {
+void benchmark_write(bool write_sync, int order, int num_entries,
+		int value_size, int entries_per_batch) {
   bool transaction = FLAGS_transaction && (entries_per_batch > 1);
-  bool setup_success;
 
-  if (state == FRESH) {
-    setup_success = benchmark_setdb();
-    if (!setup_success)
-      return;
-  }
   warn_ops(num_entries);
 
   sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
@@ -531,7 +510,7 @@ void benchmark_write(bool write_sync, int order, int state,
     if (transaction)
       stmt_runonce(begin_trans_stmt);
 
-    benchmark_writebatch(i, order, state, num_entries, value_size, entries_per_batch);
+    benchmark_writebatch(i, order, num_entries, value_size, entries_per_batch);
 
     /* End write transaction */
     if (transaction)
@@ -586,17 +565,11 @@ void benchmark_read(int order, int entries_per_batch) {
   }
 }
 
-void benchmark_readwrite(bool write_sync, int order, int state, int num_entries,
+void benchmark_readwrite(bool write_sync, int order, int num_entries,
                   int value_size, int entries_per_batch, int write_percent) {
   bool transaction = FLAGS_transaction && (entries_per_batch > 1);
-  bool setup_success;
   int i;
 
-  if (state == FRESH) {
-    setup_success = benchmark_setdb();
-    if (!setup_success)
-      return;
-  }
   warn_ops(num_entries);
 
   sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
@@ -610,7 +583,7 @@ void benchmark_readwrite(bool write_sync, int order, int state, int num_entries,
       stmt_runonce(begin_trans_stmt);
 
     if (rand_uniform(&rand_, 100) < 100)
-    	benchmark_writebatch(i, order, state, num_entries, value_size, entries_per_batch);
+    	benchmark_writebatch(i, order, num_entries, value_size, entries_per_batch);
     else
     	benchmark_readbatch(i, order, entries_per_batch);
 
