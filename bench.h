@@ -112,6 +112,9 @@ int FLAGS_mmap_size_mb;
 // Use the db with the following name.
 extern char* FLAGS_db;
 
+// Load the following extension.
+extern char* FLAGS_extension;
+
 /* histogram.c */
 void histogram_clear(Histogram*);
 void histogram_add(Histogram*, double);

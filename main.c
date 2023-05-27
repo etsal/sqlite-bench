@@ -70,6 +70,9 @@ int FLAGS_mmap_size_mb;
 // Use the db with the following name.
 char* FLAGS_db;
 
+// Load the following extension.
+char* FLAGS_extension;
+
 void init() {
   // Comma-separated list of operations to run in the specified order
   //   Actual benchmarks:
@@ -118,6 +121,7 @@ void init() {
   FLAGS_write_percent = 50;
   FLAGS_mmap_size_mb = 4;
   FLAGS_db = NULL;
+  FLAGS_extension = NULL;
 }
 
 void print_usage(const char* argv0) {
@@ -140,6 +144,7 @@ void print_usage(const char* argv0) {
   fprintf(stderr, "  --write_percent=INT\t\twrite %% in rw benchmarks\n");
   fprintf(stderr, "  --mmap_size_mb=INT\t\tMBs of memory region size for mmap IO\n");
   fprintf(stderr, "  --db=PATH\t\t\tpath to location databases are created\n");
+  fprintf(stderr, "  --extension=NAME\t\tname of extension to be loaded\n");
   fprintf(stderr, "  --help\t\t\tshow this help\n");
   fprintf(stderr, "\n");
   fprintf(stderr, "[BENCH]\n");
@@ -204,6 +209,8 @@ int main(int argc, char** argv) {
       FLAGS_mmap_size_mb = n;
     } else if (strncmp(argv[i], "--db=", 5) == 0) {
       FLAGS_db = argv[i] + 5;
+    } else if (strncmp(argv[i], "--extension=", 12) == 0) {
+      FLAGS_extension = argv[i] + 12;
     } else if (!strcmp(argv[i], "--help")) {
       print_usage(argv[0]);
       exit(0);

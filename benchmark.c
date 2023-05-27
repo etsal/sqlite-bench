@@ -292,6 +292,20 @@ static void benchmark_open() {
     exit(1);
   }
 
+  if (FLAGS_extension != NULL) {
+    status = sqlite3_enable_load_extension(db_, 1);
+    if (status) {
+      fprintf(stderr, "enable extension error: %s\n", sqlite3_errmsg(db_));
+      exit(1);
+    }
+
+    status = sqlite3_load_extension(db_, FLAGS_extension, NULL, &err_msg);
+    if (status) {
+      fprintf(stderr, "enable extension error: %s\n", err_msg);
+      exit(1);
+    }
+  }
+
   /* Set the size of the mmap region. */
   set_pragma_int("mmap_size", FLAGS_mmap_size_mb * 1024 * 1024);
 
