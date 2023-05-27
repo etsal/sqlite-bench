@@ -499,7 +499,7 @@ static void benchmark_readwrite(bool write_sync, int order, int num_entries,
     if (transaction)
       stmt_runonce(begin_trans_stmt);
 
-    if (rand_uniform(&rand_, 100) < 100)
+    if (rand_uniform(&rand_, 100) < write_percent)
     	benchmark_writebatch(i, order, num_entries, value_size, entries_per_batch);
     else
     	benchmark_readbatch(i, order, entries_per_batch);
