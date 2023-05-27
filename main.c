@@ -5,20 +5,6 @@
 #include "bench.h"
 
 // Comma-separated list of operations to run in the specified order
-//   Actual benchmarks:
-//
-//   fillseq       -- write N values in sequential key order in async mode
-//   fillseqsync   -- write N/100 values in sequential key order in sync mode
-//   fillseqbatch  -- batch write N values in sequential key order in async mode
-//   fillrandom    -- write N values in random key order in async mode
-//   fillrandsync  -- write N/100 values in random key order in sync mode
-//   fillrandbatch -- batch write N values in sequential key order in async mode
-//   overwrite     -- overwrite N values in random key order in async mode
-//   fillrand100K  -- write N/1000 100K values in random order in async mode
-//   fillseq100K   -- write N/1000 100K values in sequential order in async mode
-//   readseq       -- read N times sequentially
-//   readrandom    -- read N times in random order
-//   readrand100K  -- read N/1000 100K values in sequential order in async mode
 char* FLAGS_benchmarks;
 
 // Number of key/values to place in database
@@ -83,28 +69,27 @@ void init() {
   //   fillrandom    -- write N values in random key order in async mode
   //   fillrandsync  -- write N/100 values in random key order in sync mode
   //   fillrandbatch -- batch write N values in sequential key order in async mode
-  //   overwrite     -- overwrite N values in random key order in async mode
-  //   fillrand100K  -- write N/1000 100K values in random order in async mode
-  //   fillseq100K   -- write N/1000 100K values in sequential order in async mode
   //   readseq       -- read N times sequentially
   //   readrandom    -- read N times in random order
-  //   readrand100K  -- read N/1000 100K values in sequential order in async mode
+  //   rwrandom   	-- write N values in random key order in async mode
+  //   rwrandsync 	-- write N/100 values in random key order in sync mode
+  //   rwrandbatch	-- batch write N values in sequential key order in async mode
+  //   rwseq   		-- write N values in random key order in async mode
+  //   rwseqsync 	-- write N/100 values in random key order in sync mode
+  //   rwseqbatch	-- batch write N values in sequential key order in async mode
   FLAGS_benchmarks =
     "fillseq,"
     "fillseqsync,"
     "fillseqbatch,"
-    "fillseq100K,"
     "fillrandom,"
     "fillrandsync,"
     "fillrandbatch,"
-    "fillrand100K,"
-    "overwrite,"
-    "overwritebatch,"
     "readrandom,"
     "readseq,"
-    "readrand100K,"
     "rwrandom,"
+    "rwrandsync,"
     "rwseq,"
+    "rwseqsync,"
     ;
   FLAGS_num = 1000000;
   FLAGS_reads = -1;

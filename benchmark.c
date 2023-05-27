@@ -542,15 +542,32 @@ void benchmark_fini() {
   error_check(status);
 }
 
+int get_order(char *suffix) {
+  return !strncmp(suffix, "seq", sizeof("seq") - 1) ? SEQUENTIAL : RANDOM;
+}
+
+int get_sync(char *name) {
+  int len = sizeof("sync") - 1;
+  return !strncmp(&name[strlen(name) - len], "sync", len);
+}
+
+int get_batch_size(char* name) {
+  int len = sizeof("batch") - 1;
+  return !strncmp(&name[strlen(name) - len], "batch", len) ? 1000 : 1;
+}
 
 void benchmark_run() {
+  int batch_size, sync;
+  char* benchmarks;
+  char *suffix;
+
   print_header();
   benchmark_open();
 
   /* Prepopulate the database. */
   benchmark_prefill(num_ / 1000, 1000);
 
-  char* benchmarks = FLAGS_benchmarks;
+  benchmarks = FLAGS_benchmarks;
   while (benchmarks != NULL) {
     char* sep = strchr(benchmarks, ',');
     char* name;
@@ -563,65 +580,29 @@ void benchmark_run() {
       benchmarks = sep + 1;
     }
     bytes_ = 0;
+    /* Get the sync and batch size by checking the suffix of the benchmark. */
+    sync = get_sync(name);
+    batch_size = get_batch_size(name);
+
     start();
-    bool known = true;
-    bool write_sync = false;
-    if (!strcmp(name, "fillseq")) {
-      benchmark_write(write_sync, SEQUENTIAL, num_, FLAGS_value_size, 1);
-      wal_checkpoint(db_);
-    } else if (!strcmp(name, "fillseqbatch")) {
-      benchmark_write(write_sync, SEQUENTIAL, num_, FLAGS_value_size, 1000);
-      wal_checkpoint(db_);
-    } else if (!strcmp(name, "fillrandom")) {
-      benchmark_write(write_sync, RANDOM, num_, FLAGS_value_size, 1);
-      wal_checkpoint(db_);
-    } else if (!strcmp(name, "fillrandbatch")) {
-      benchmark_write(write_sync, RANDOM, num_, FLAGS_value_size, 1000);
-      wal_checkpoint(db_);
-    } else if (!strcmp(name, "overwrite")) {
-      benchmark_write(write_sync, RANDOM, num_, FLAGS_value_size, 1);
-      wal_checkpoint(db_);
-    } else if (!strcmp(name, "overwritebatch")) {
-      benchmark_write(write_sync, RANDOM, num_, FLAGS_value_size, 1000);
-      wal_checkpoint(db_);
-    } else if (!strcmp(name, "fillrandsync")) {
-      write_sync = true;
-      benchmark_write(write_sync, RANDOM, num_ / 100, FLAGS_value_size, 1);
-      wal_checkpoint(db_);
-    } else if (!strcmp(name, "fillseqsync")) {
-      write_sync = true;
-      benchmark_write(write_sync, SEQUENTIAL, num_ / 100, FLAGS_value_size, 1);
-      wal_checkpoint(db_);
-    } else if (!strcmp(name, "fillrand100K")) {
-      benchmark_write(write_sync, RANDOM, num_ / 1000, 100 * 1000, 1);
-      wal_checkpoint(db_);
-    } else if (!strcmp(name, "fillseq100K")) {
-      benchmark_write(write_sync, SEQUENTIAL, num_ / 1000, 100 * 1000, 1);
-      wal_checkpoint(db_);
-    } else if (!strcmp(name, "readseq")) {
-      benchmark_read(SEQUENTIAL, 1);
-    } else if (!strcmp(name, "readrandom")) {
-      benchmark_read(RANDOM, 1);
-    } else if (!strcmp(name, "rwrandom")) {
-       benchmark_readwrite(write_sync, SEQUENTIAL, num_, FLAGS_value_size, 1, FLAGS_write_percent);
-       wal_checkpoint(db_);
-     } else if (!strcmp(name, "rwseq")) {
-       benchmark_readwrite(write_sync, RANDOM, num_, FLAGS_value_size, 1, FLAGS_write_percent);
-       wal_checkpoint(db_);
-    } else if (!strcmp(name, "readrand100K")) {
-      int n = reads_;
-      reads_ /= 1000;
-      benchmark_read(RANDOM, 1);
-      reads_ = n;
+
+    /* Get the benchmark type and ordering by parsing the prefix of the name. */
+    if (!strncmp(name, "fill", sizeof("fill") - 1)) {
+      suffix = &name[sizeof("fill") - 1];
+      benchmark_write(sync, get_order(suffix), num_, FLAGS_value_size, batch_size);
+    } else if (!strncmp(name, "rw", sizeof("rw") - 1)) {
+      suffix = &name[sizeof("rw") - 1];
+      benchmark_readwrite(sync, get_order(suffix), num_, FLAGS_value_size, batch_size, FLAGS_write_percent);
+    } else if (!strncmp(name, "read", sizeof("read") - 1)) {
+      suffix = &name[sizeof("read") - 1];
+      benchmark_read(get_order(suffix), 1);
     } else {
-      known = false;
-      if (strcmp(name, "")) {
+      if (strcmp(name, ""))
         fprintf(stderr, "unknown benchmark '%s'\n", name);
-      }
+	  continue;
     }
-    if (known) {
-      stop(name);
-    }
+    wal_checkpoint(db_);
+    stop(name);
   }
 }
 
