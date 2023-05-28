@@ -2,7 +2,7 @@ SQLITEDIR=$(PWD)/../sqlite
 CFLAGS=-Wall -O2 -DNDEBUG -std=c99 -g
 SRCS=benchmark.c histogram.c main.c random.c raw.c util.c $(SQLITEDIR)/build/sqlite3.c
 INCLUDEDIR=-I$(SQLITEDIR)/build
-LDFLAGS=-pthread -ldl -lm
+LDFLAGS=-pthread -ldl -lm -lsls
 CC=clang
 
 all: db_bench

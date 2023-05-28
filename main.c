@@ -53,6 +53,9 @@ int FLAGS_write_percent;
 // Configure the maximum mmap size in MB.
 int FLAGS_mmap_size_mb;
 
+// Configure the default SLS OID (or 0 if no SLS).
+int FLAGS_oid;
+
 // Use the db with the following name.
 char* FLAGS_db;
 
@@ -105,6 +108,7 @@ void init() {
   FLAGS_WAL_size = 1024;
   FLAGS_write_percent = 50;
   FLAGS_mmap_size_mb = 4;
+  FLAGS_oid = 0;
   FLAGS_db = NULL;
   FLAGS_extension = NULL;
 }
@@ -194,6 +198,8 @@ int main(int argc, char** argv) {
       FLAGS_mmap_size_mb = n;
     } else if (strncmp(argv[i], "--db=", 5) == 0) {
       FLAGS_db = argv[i] + 5;
+    } else if (sscanf(argv[i], "--oid=%d%c", &n, &junk) == 1) {
+      FLAGS_oid = n;
     } else if (strncmp(argv[i], "--extension=", 12) == 0) {
       FLAGS_extension = argv[i] + 12;
     } else if (!strcmp(argv[i], "--help")) {

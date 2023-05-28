@@ -5,6 +5,8 @@
 #ifndef BENCH_H_
 #define BENCH_H_
 
+#include <sys/mman.h>
+
 #include <assert.h>
 #include <ctype.h>
 #include <dirent.h>
@@ -16,7 +18,9 @@
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
+#include <sls.h>
 #include <sqlite3.h>
+#include <unistd.h>
 
 #define kNumBuckets 154
 #define kNumData 1000000
@@ -108,6 +112,9 @@ int FLAGS_write_percent;
 
 // Configure the maximum mmap size in MB.
 int FLAGS_mmap_size_mb;
+
+// Configure the default SLS OID (or 0 if no SLS).
+int FLAGS_oid;
 
 // Use the db with the following name.
 extern char* FLAGS_db;

@@ -56,10 +56,8 @@ static void error_check(int status) {
 inline
 static void wal_checkpoint(sqlite3* db_) {
   /* Flush all writes to disk */
-  if (FLAGS_WAL_enabled) {
-    sqlite3_wal_checkpoint_v2(db_, NULL, SQLITE_CHECKPOINT_FULL, NULL,
-                              NULL);
-  }
+  if (FLAGS_WAL_enabled)
+    sqlite3_wal_checkpoint_v2(db_, NULL, SQLITE_CHECKPOINT_FULL, NULL, NULL);
 }
 
 static void print_warnings() {
@@ -271,40 +269,135 @@ static void stmt_clear_and_reset(sqlite3_stmt *stmt) {
   error_check(status);
 }
 
+void setup_sls(int oid) {
+  int error;
 
-static void benchmark_open() {
-  assert(db_ == NULL);
+  struct sls_attr attr = {
+    .attr_target = SLS_OSD,
+    .attr_mode = SLS_DELTA,
+    .attr_period = 0,
+    .attr_flags = SLSATTR_IGNUNLINKED,
+    .attr_amplification = 1,
+  };
 
+  error = sls_partadd(oid, attr, -1);
+  if (error != 0) {
+	  fprintf(stderr, "sls_partadd: error %d\n", error);
+	  exit(1);
+  }
+
+  error = sls_attach(oid, getpid());
+  if (error != 0) {
+	  fprintf(stderr, "sls_attach: error %d\n", error);
+	  exit(1);
+  }
+
+  error = sls_checkpoint(oid, true);
+  if (error != 0) {
+	  fprintf(stderr, "sls_checkpoint: error %d\n", error);
+	  exit(1);
+  }
+}
+
+static void load_extension(void) {
+  sqlite3 *tmpdb;
+  char *err_msg;
   int status;
-  char file_name[100];
-  char* err_msg = NULL;
-  db_num_++;
 
-  /* Open database */
-  char *tmp_dir = FLAGS_db;
+  /* Create a database connection just to import the auroravfs extension. */
+  status = sqlite3_open(":memory:", &tmpdb);
+  if (status != 0) {
+    fprintf(stderr, "open err: %d", status);
+    exit(1);
+  }
+
+  status = sqlite3_enable_load_extension(tmpdb, 1);
+  if (status) {
+    fprintf(stderr, "enable extension error: %s\n", sqlite3_errmsg(tmpdb));
+    exit(1);
+  }
+
+  status = sqlite3_load_extension(tmpdb, FLAGS_extension, NULL, &err_msg);
+  if (status) {
+    fprintf(stderr, "enable extension error: %s\n", err_msg);
+    exit(1);
+  }
+  
+  sqlite3_close(tmpdb);
+}
+
+static void benchmark_open_regular(void) {
+  char *tmp_dir = "/";
+  char file_name[100];
+  int status;
+
   snprintf(file_name, sizeof(file_name),
-            "%sdbbench_sqlite3-%d.db",
-            tmp_dir,
-            db_num_);
+		  "%sdbbench_sqlite3-%d.db",
+		  tmp_dir,
+ 		  db_num_);
+
   status = sqlite3_open(file_name, &db_);
   if (status) {
     fprintf(stderr, "open error: %s\n", sqlite3_errmsg(db_));
     exit(1);
   }
+}
 
-  if (FLAGS_extension != NULL) {
-    status = sqlite3_enable_load_extension(db_, 1);
-    if (status) {
-      fprintf(stderr, "enable extension error: %s\n", sqlite3_errmsg(db_));
-      exit(1);
-    }
+static void benchmark_open_slos(void) {
+  char *tmp_dir = "/";
+  char file_name[100];
+  void *addr;
+  int status;
 
-    status = sqlite3_load_extension(db_, FLAGS_extension, NULL, &err_msg);
-    if (status) {
-      fprintf(stderr, "enable extension error: %s\n", err_msg);
-      exit(1);
-    }
+  setup_sls(FLAGS_oid);
+
+  addr = mmap(NULL, FLAGS_mmap_size_mb * 1024 * 1024, PROT_READ | PROT_WRITE, 
+		  MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+  if (addr == NULL) {
+	perror("mmap");
+	exit(1);
   }
+
+  /* 
+   * Trigger a page fault to force the creation 
+   * of the object backing the mapping.
+   */
+  *(char *)addr= '1';
+
+  if (FLAGS_extension != NULL)
+    load_extension();
+
+  snprintf(file_name, sizeof(file_name),
+		  "file:%sdbbench_sqlite3-%d.db?ptr=%p&sz=%d&max=%d&oid=%d",
+		  tmp_dir,
+ 		  db_num_,
+		  addr,
+		  0,
+		  FLAGS_mmap_size_mb * 4096,
+		  FLAGS_oid);
+
+  status = sqlite3_open_v2(file_name, &db_, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_URI, FLAGS_extension);
+  if (status) {
+    fprintf(stderr, "open error: %s\n", sqlite3_errmsg(db_));
+    exit(1);
+  }
+
+}
+
+
+static void benchmark_open() {
+  char* err_msg = NULL;
+  int status;
+
+  assert(db_ == NULL);
+
+  db_num_++;
+
+  /* Open the database. */
+  if (FLAGS_oid > 0)
+    benchmark_open_slos();
+  else
+    benchmark_open_regular();
 
   /* Set the size of the mmap region. */
   set_pragma_int("mmap_size", FLAGS_mmap_size_mb * 1024 * 1024);
@@ -324,6 +417,7 @@ static void benchmark_open() {
 
   /* Change locking mode to exclusive and create tables/index for database */
   set_pragma_str("locking_mode", "EXCLUSIVE");
+
   char* create_stmt =
           "CREATE TABLE test (key blob, value blob, PRIMARY KEY (key))";
   status = sqlite3_exec(db_, create_stmt, NULL, NULL, &err_msg);
