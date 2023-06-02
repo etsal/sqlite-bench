@@ -414,7 +414,9 @@ static void benchmark_open() {
   if (FLAGS_WAL_enabled) {
     set_pragma_str("journal_mode", "WAL");
     set_pragma_int("wal_autocheckpoint", FLAGS_WAL_size);
-  } 
+  } else {
+    set_pragma_str("journal_mode", "OFF");
+  }
 
   /* Change locking mode to exclusive and create tables/index for database */
   set_pragma_str("locking_mode", "EXCLUSIVE");
