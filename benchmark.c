@@ -506,16 +506,18 @@ void warn_ops(int num_entries) {
 
 static void benchmark_write(bool write_sync, int order, int num_entries,
 		int value_size, int entries_per_batch) {
-  bool transaction = FLAGS_transaction && (entries_per_batch > 1);
+  const bool transaction = FLAGS_transaction && (entries_per_batch > 1);
+  const bool synchronous = FLAGS_WAL_enabled && write_sync;
+  int i;
 
   warn_ops(num_entries);
 
   sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
   sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
 
-  set_pragma_str("synchronous", (write_sync) ? "FULL" : "NORMAL");
+  set_pragma_str("synchronous", (synchronous) ? "NORMAL" : "OFF");
 
-  for (int i = 0; i < num_entries; i += entries_per_batch) {
+  for (i = 0; i < num_entries; i += entries_per_batch) {
     /* Begin write transaction */
     if (transaction)
       stmt_runonce(begin_trans_stmt);
