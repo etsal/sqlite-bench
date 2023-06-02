@@ -368,13 +368,14 @@ static void benchmark_open_slos(void) {
     load_extension();
 
   snprintf(file_name, sizeof(file_name),
-		  "file:%sdbbench_sqlite3-%d.db?ptr=%p&sz=%d&max=%d&oid=%d",
+		  "file:%sdbbench_sqlite3-%d.db?ptr=%p&sz=%d&max=%d&oid=%d&threshold=%d",
 		  tmp_dir,
  		  db_num_,
 		  addr,
 		  0,
-		  FLAGS_mmap_size_mb * 4096,
-		  FLAGS_oid);
+		  FLAGS_mmap_size_mb * 1024 * 1024,
+		  FLAGS_oid,
+		  FLAGS_WAL_size * 4096);
 
   status = sqlite3_open_v2(file_name, &db_, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_URI, FLAGS_extension);
   if (status) {
@@ -413,7 +414,7 @@ static void benchmark_open() {
   if (FLAGS_WAL_enabled) {
     set_pragma_str("journal_mode", "WAL");
     set_pragma_int("wal_autocheckpoint", FLAGS_WAL_size);
-  }
+  } 
 
   /* Change locking mode to exclusive and create tables/index for database */
   set_pragma_str("locking_mode", "EXCLUSIVE");
