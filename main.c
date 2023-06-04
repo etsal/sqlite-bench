@@ -45,7 +45,7 @@ bool FLAGS_transaction;
 bool FLAGS_WAL_enabled;
 
 // Configure how many pages to use for WAL
-int FLAGS_WAL_size;
+int FLAGS_checkpoint_granularity;
 
 // Configure the write percentage for mixed read/write benchmarks.
 int FLAGS_write_percent;
@@ -105,7 +105,7 @@ void init() {
   FLAGS_use_existing_db = false;
   FLAGS_transaction = true;
   FLAGS_WAL_enabled = true;
-  FLAGS_WAL_size = 1024;
+  FLAGS_checkpoint_granularity = 1024;
   FLAGS_write_percent = 50;
   FLAGS_mmap_size_mb = 4;
   FLAGS_oid = 0;
@@ -190,8 +190,8 @@ int main(int argc, char** argv) {
     } else if (sscanf(argv[i], "--WAL_enabled=%d%c", &n, &junk) == 1 &&
                (n == 0 || n == 1)) {
       FLAGS_WAL_enabled = n;
-    } else if (sscanf(argv[i], "--WAL_size=%d%c", &n, &junk) == 1) {
-      FLAGS_WAL_size = n;
+    } else if (sscanf(argv[i], "--checkpoint_granularity=%d%c", &n, &junk) == 1) {
+      FLAGS_checkpoint_granularity = n;
     } else if (sscanf(argv[i], "--write_percent=%d%c", &n, &junk) == 1) {
       FLAGS_write_percent = n;
     } else if (sscanf(argv[i], "--mmap_size_mb=%d%c", &n, &junk) == 1) {

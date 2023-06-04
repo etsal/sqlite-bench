@@ -375,7 +375,7 @@ static void benchmark_open_slos(void) {
 		  0,
 		  FLAGS_mmap_size_mb * 1024 * 1024,
 		  FLAGS_oid,
-		  FLAGS_WAL_size * 4096);
+		  FLAGS_checkpoint_granularity * 4096);
 
   status = sqlite3_open_v2(file_name, &db_, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_URI, FLAGS_extension);
   if (status) {
@@ -413,7 +413,7 @@ static void benchmark_open() {
   /* Change journal mode to WAL if WAL enabled flag is on */
   if (FLAGS_WAL_enabled) {
     set_pragma_str("journal_mode", "WAL");
-    set_pragma_int("wal_autocheckpoint", FLAGS_WAL_size);
+    set_pragma_int("wal_autocheckpoint", FLAGS_checkpoint_granularity);
   } else {
     set_pragma_str("journal_mode", "OFF");
   }

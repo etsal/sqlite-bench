@@ -105,7 +105,7 @@ extern bool FLAGS_transaction;
 extern bool FLAGS_WAL_enabled;
 
 // Configure how many pages to use for WAL
-extern int FLAGS_WAL_size;
+extern int FLAGS_checkpoint_granularity;
 
 // Configure the write percentage for mixed read/write benchmarks.
 int FLAGS_write_percent;
