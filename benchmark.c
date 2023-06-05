@@ -589,7 +589,7 @@ static void benchmark_read(int order, int entries_per_batch) {
 
 static void benchmark_readwrite(bool write_sync, int order, int num_entries,
                   int value_size, int entries_per_batch, int write_percent) {
-  bool transaction = FLAGS_transaction && (entries_per_batch > 1);
+  bool transaction = FLAGS_transaction;
   int i;
 
   warn_ops(num_entries);
