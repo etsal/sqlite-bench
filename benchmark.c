@@ -270,6 +270,7 @@ static void stmt_clear_and_reset(sqlite3_stmt *stmt) {
 }
 
 void setup_sls(int oid) {
+  uint64_t epoch;
   int error;
 
   struct sls_attr attr = {
@@ -292,9 +293,15 @@ void setup_sls(int oid) {
 	  exit(1);
   }
 
-  error = sls_checkpoint(oid, true);
+  error = sls_checkpoint_epoch(oid, true, &epoch);
   if (error != 0) {
 	  fprintf(stderr, "sls_checkpoint: error %d\n", error);
+	  exit(1);
+  }
+
+  error = sls_epochwait(oid, epoch, true, NULL);
+  if (error != 0) {
+	  fprintf(stderr, "sls_epochwait: error %d\n", error);
 	  exit(1);
   }
 }
