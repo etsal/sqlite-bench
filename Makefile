@@ -1,6 +1,19 @@
 SQLITEDIR=$(PWD)/../sqlite
 CFLAGS=-Wall -O2 -DNDEBUG -std=c99 -g
 SRCS=benchmark.c histogram.c main.c random.c raw.c util.c $(SQLITEDIR)/build/sqlite3.c
+SQLITE_FLAGS=-DSQLITE_DQS=0 \
+	-DSQLITE_THREADSAFE=0 \
+	-DSQLITE_DEFAULT_MEMSTATUS=0 \
+	-DSQLITE_DEFAULT_WAL_SYNCHRONOUS=1 \
+	-DSQLITE_LIKE_DOESNT_MATCH_BLOBS \
+	-DSQLITE_MAX_EXPR_DEPTH=0 \
+	-DSQLITE_OMIT_DECLTYPE \
+	-DSQLITE_OMIT_DEPRECATED \
+	-DSQLITE_OMIT_PROGRESS_CALLBACK \
+	-DSQLITE_OMIT_SHARED_CACHE \
+	-DSQLITE_USE_ALLOCA \
+	-DSQLITE_MMAP_READWRITE \
+	-DSQLITE_MAX_MMAP_SIZE=1073741824
 INCLUDEDIR=-I$(SQLITEDIR)/build
 LDFLAGS=-pthread -ldl -lm -lsls
 CC=clang
@@ -14,7 +27,7 @@ test: db_bench
 	rm -f *.db *.db-wal
 
 db_bench: $(SRCS) 
-	$(CC) $(INCLUDEDIR) $(CFLAGS) $(LDFLAGS) $(SRCS) -o $@
+	$(CC) $(INCLUDEDIR) $(CFLAGS) $(SQLITE_FLAGS) $(LDFLAGS) $(SRCS) -o $@
 
 clean:
 	rm -rf db_bench* *.o *.db *.db-wal
