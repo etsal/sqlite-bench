@@ -334,7 +334,7 @@ static void load_extension(void) {
 }
 
 static void benchmark_open_regular(void) {
-  char *tmp_dir = "/";
+  char *tmp_dir = "/tmp/";
   char file_name[100];
   int status;
 
@@ -351,7 +351,7 @@ static void benchmark_open_regular(void) {
 }
 
 static void benchmark_open_slos(void) {
-  char *tmp_dir = "/";
+  char *tmp_dir = "/tmp/";
   char file_name[100];
   void *addr;
   int status;
