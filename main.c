@@ -38,6 +38,9 @@ int FLAGS_num_pages;
 // benchmark will fail.
 bool FLAGS_use_existing_db;
 
+// If true then single operations, not transactions.
+bool FLAGS_benchmark_single_op;
+
 // If true, we allow batch writes to occur
 bool FLAGS_transaction;
 
@@ -107,6 +110,7 @@ void init() {
   FLAGS_num_pages = 4096;
   FLAGS_use_existing_db = false;
   FLAGS_transaction = true;
+  FLAGS_benchmark_single_op = false,
   FLAGS_WAL_enabled = true;
   FLAGS_checkpoint_granularity = 1024;
   FLAGS_write_percent = 50;
@@ -130,6 +134,7 @@ void print_usage(const char* argv0) {
   fprintf(stderr, "  --reads=INT\t\t\tnumber of reads\n");
   fprintf(stderr, "  --value_size=INT\t\tvalue size\n");
   fprintf(stderr, "  --no_transaction\t\tdisable transaction\n");
+  fprintf(stderr, "  --benchmark_single_op\t\tstatistics for individual operations, not transactions\n");
   fprintf(stderr, "  --page_size=INT\t\tpage size\n");
   fprintf(stderr, "  --num_pages=INT\t\tnumber of pages\n");
   fprintf(stderr, "  --WAL_enabled={0,1}\t\tenable WAL\n");
@@ -187,6 +192,8 @@ int main(int argc, char** argv) {
       FLAGS_value_size = n;
     } else if (!strcmp(argv[i], "--no_transaction")) {
       FLAGS_transaction = false;
+    } else if (!strcmp(argv[i], "--benchmark_single_op")) {
+      FLAGS_benchmark_single_op = true;
     } else if (sscanf(argv[i], "--page_size=%d%c", &n, &junk) == 1) {
       FLAGS_page_size = n;
     } else if (sscanf(argv[i], "--num_pages=%d%c", &n, &junk) == 1) {

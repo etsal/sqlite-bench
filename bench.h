@@ -98,6 +98,9 @@ extern int FLAGS_num_pages;
 // benchmark will fail.
 extern bool FLAGS_use_existing_db;
 
+// If true then single operations, not transactions.
+bool FLAGS_benchmark_single_op;
+
 // If true, we allow batch writes to occur
 extern bool FLAGS_transaction;
 
