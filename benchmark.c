@@ -375,12 +375,12 @@ static void benchmark_open_slos(void) {
     load_extension();
 
   snprintf(file_name, sizeof(file_name),
-		  "file:%sdbbench_sqlite3-%d.db?ptr=%p&sz=%d&max=%d&oid=%d&threshold=%d",
+		  "file:%sdbbench_sqlite3-%d.db?ptr=%p&sz=%d&max=%ld&oid=%d&threshold=%d",
 		  tmp_dir,
  		  db_num_,
 		  addr,
 		  0,
-		  FLAGS_mmap_size_mb * 1024 * 1024,
+		  (long) FLAGS_mmap_size_mb * 1024 * 1024,
 		  FLAGS_oid,
 		  FLAGS_checkpoint_granularity * 4096);
 
