@@ -502,7 +502,6 @@ static void benchmark_writebatch(int iter, int order, int num_entries,
     step_error_check(status);
 
     stmt_clear_and_reset(replace_stmt);
-    finished_single_op();
   }
 }
 
@@ -537,6 +536,8 @@ static void benchmark_write(bool write_sync, int order, int num_entries,
     /* End write transaction */
     if (transaction)
       stmt_runonce(end_trans_stmt);
+
+    finished_single_op();
   }
 }
 
@@ -563,7 +564,6 @@ static void benchmark_readbatch(int iter, int order, int entries_per_batch)
 
     /* Reset SQLite statement for another use */
     stmt_clear_and_reset(read_stmt);
-    finished_single_op();
   }
 }
 
@@ -584,6 +584,7 @@ static void benchmark_read(int order, int entries_per_batch) {
     /* End read transaction */
     if (transaction)
       stmt_runonce(end_trans_stmt);
+    finished_single_op();
   }
 }
 
