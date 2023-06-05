@@ -113,6 +113,9 @@ int FLAGS_write_percent;
 // Configure the maximum mmap size in MB.
 int FLAGS_mmap_size_mb;
 
+// Configure the batch size for the transactional benchmarks.
+extern int FLAGS_batch_size;
+
 // Configure the default SLS OID (or 0 if no SLS).
 int FLAGS_oid;
 

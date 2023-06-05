@@ -53,6 +53,9 @@ int FLAGS_write_percent;
 // Configure the maximum mmap size in MB.
 int FLAGS_mmap_size_mb;
 
+// Configure the batch size for the transactional benchmarks.
+int FLAGS_batch_size;
+
 // Configure the default SLS OID (or 0 if no SLS).
 int FLAGS_oid;
 
@@ -110,6 +113,7 @@ void init() {
   FLAGS_mmap_size_mb = 4;
   FLAGS_oid = 0;
   FLAGS_db = NULL;
+  FLAGS_batch_size = 1024;
   FLAGS_extension = NULL;
 }
 
@@ -200,6 +204,8 @@ int main(int argc, char** argv) {
       FLAGS_db = argv[i] + 5;
     } else if (sscanf(argv[i], "--oid=%d%c", &n, &junk) == 1) {
       FLAGS_oid = n;
+    } else if (sscanf(argv[i], "--batch_size=%d%c", &n, &junk) == 1) {
+      FLAGS_batch_size = n;
     } else if (strncmp(argv[i], "--extension=", 12) == 0) {
       FLAGS_extension = argv[i] + 12;
     } else if (!strcmp(argv[i], "--help")) {

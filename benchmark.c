@@ -509,8 +509,8 @@ void warn_ops(int num_entries) {
 
 static void benchmark_write(bool write_sync, int order, int num_entries,
 		int value_size, int entries_per_batch) {
-  const bool transaction = FLAGS_transaction && (entries_per_batch > 1);
-  const bool synchronous = FLAGS_WAL_enabled && write_sync;
+  const bool synchronous = FLAGS_WAL_enabled || write_sync;
+  const bool transaction = FLAGS_transaction;
   int i;
 
   warn_ops(num_entries);
@@ -651,7 +651,7 @@ int get_sync(char *name) {
 
 int get_batch_size(char* name) {
   int len = sizeof("batch") - 1;
-  return !strncmp(&name[strlen(name) - len], "batch", len) ? 1000 : 1;
+  return !strncmp(&name[strlen(name) - len], "batch", len) ? FLAGS_batch_size : 1;
 }
 
 void benchmark_run() {
