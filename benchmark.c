@@ -14,6 +14,11 @@ enum DBState {
   EXISTING
 };
 
+enum OpKind{
+  READ,
+  WRITE
+};
+
 sqlite3* db_;
 int db_num_;
 int num_;
@@ -22,7 +27,8 @@ double start_;
 double last_op_finish_;
 int64_t bytes_;
 char* message_;
-Histogram hist_;
+Histogram hist_rd_;
+Histogram hist_wr_;
 Raw raw_;
 RandomGenerator gen_;
 Random rand_;
@@ -135,17 +141,20 @@ static void start() {
   message_ = malloc(sizeof(char) * 10000);
   strcpy(message_, "");
   last_op_finish_ = start_;
-  histogram_clear(&hist_);
+  histogram_clear(&hist_wr_);
+  histogram_clear(&hist_rd_);
   raw_clear(&raw_);
   done_ = 0;
 }
 
-void finished_single_op() {
+void finished_single_op(enum OpKind kind) {
+  Histogram *hist = (kind == WRITE) ? &hist_wr_ : &hist_rd_;
+
   if (FLAGS_histogram || FLAGS_raw) {
     double now = now_micros() * 1e-6;
     double micros = (now - last_op_finish_) * 1e6;
     if (FLAGS_histogram) {
-      histogram_add(&hist_, micros);
+      histogram_add(hist, micros);
       if (micros > 20000) {
         fprintf(stderr, "long op: %.1f micros%30s\r", micros, "");
         fflush(stderr);
@@ -185,8 +194,10 @@ static void stop(const char* name) {
     raw_print(stdout, &raw_);
   }
   if (FLAGS_histogram) {
-    fprintf(stderr, "Microseconds per op:\n%s\n",
-            histogram_to_string(&hist_));
+    fprintf(stderr, "Microseconds per write op:\n%s\n",
+            histogram_to_string(&hist_wr_));
+    fprintf(stderr, "Microseconds per read op:\n%s\n",
+            histogram_to_string(&hist_rd_));
   }
   fflush(stdout);
   fflush(stderr);
@@ -504,7 +515,7 @@ static void benchmark_writebatch(int iter, int order, int num_entries,
     stmt_clear_and_reset(replace_stmt);
 
     if (FLAGS_benchmark_single_op)
-    	finished_single_op();
+    	finished_single_op(WRITE);
   }
 }
 
@@ -541,7 +552,7 @@ static void benchmark_write(bool write_sync, int order, int num_entries,
       stmt_runonce(end_trans_stmt);
 
     if (!FLAGS_benchmark_single_op)
-    	finished_single_op();
+    	finished_single_op(WRITE);
   }
 }
 
@@ -570,7 +581,7 @@ static void benchmark_readbatch(int iter, int order, int entries_per_batch)
     stmt_clear_and_reset(read_stmt);
 
     if (FLAGS_benchmark_single_op)
-    	finished_single_op();
+    	finished_single_op(READ);
   }
 }
 
@@ -593,7 +604,7 @@ static void benchmark_read(int order, int entries_per_batch) {
       stmt_runonce(end_trans_stmt);
 
     if (!FLAGS_benchmark_single_op)
-    	finished_single_op();
+    	finished_single_op(READ);
   }
 }
 
