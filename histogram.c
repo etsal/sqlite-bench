@@ -4,7 +4,6 @@
 
 #include "bench.h"
 
-static double median(Histogram*);
 static double percentile(Histogram*, double);
 static double average(Histogram*);
 static double standard_deviation(Histogram*);
@@ -29,10 +28,6 @@ const static double bucket_limit[kNumBuckets] = {
   5000000000.0, 6000000000.0, 7000000000.0, 8000000000.0, 9000000000.0,
   1e200,
 };
-
-static double median(Histogram* hist_) {
-  return percentile(hist_, 50.0);
-}
 
 static double percentile(Histogram* hist_, double p) {
   double threshold = hist_->num_ * (p / 100.0);
@@ -141,7 +136,18 @@ char* histogram_to_string(Histogram* hist_) {
   snprintf(buf, sizeof(buf),
             "Min: %.4f  Median: %.4f  Max: %.4f\n",
             (hist_->num_ == 0.0 ? 0.0 : hist_->min_),
-            median(hist_), hist_->max_);
+            percentile(hist_, 50), hist_->max_);
+  if (r_size < strlen(r) + strlen(buf)) {
+    r = realloc(r, r_size * 2);
+    r_size *= 2;
+  }
+
+  strcat(r, buf);
+  snprintf(buf, sizeof(buf),
+            "50th: %.4f  90th: %.4f  99th: %.4f\n",
+	    percentile(hist_, 50),
+	    percentile(hist_, 90),
+	    percentile(hist_, 99));
   if (r_size < strlen(r) + strlen(buf)) {
     r = realloc(r, r_size * 2);
     r_size *= 2;
