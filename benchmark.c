@@ -611,6 +611,7 @@ static void benchmark_read(int order, int entries_per_batch) {
 static void benchmark_readwrite(bool write_sync, int order, int num_entries,
                   int value_size, int entries_per_batch, int write_percent) {
   bool transaction = FLAGS_transaction;
+  enum OpKind kind;
   int i;
 
   warn_ops(num_entries);
@@ -625,7 +626,8 @@ static void benchmark_readwrite(bool write_sync, int order, int num_entries,
     if (transaction)
       stmt_runonce(begin_trans_stmt);
 
-    if (rand_uniform(&rand_, 100) < write_percent)
+    kind = rand_uniform(&rand_, 100) < write_percent;
+    if (kind == WRITE)
     	benchmark_writebatch(i, order, num_entries, value_size, entries_per_batch);
     else
     	benchmark_readbatch(i, order, entries_per_batch);
@@ -633,6 +635,9 @@ static void benchmark_readwrite(bool write_sync, int order, int num_entries,
     /* End write transaction */
     if (transaction)
       stmt_runonce(end_trans_stmt);
+
+    if (!FLAGS_benchmark_single_op)
+    	finished_single_op(kind);
   }
 }
 
