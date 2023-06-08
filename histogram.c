@@ -111,6 +111,20 @@ void histogram_merge(Histogram* hist_, const Histogram* other_) {
     hist_->buckets_[b] += other_->buckets_[b];
 }
 
+void append_to_buffer(char **bufp, char *append, size_t *maxszp) {
+  char *buf = *bufp;
+  size_t maxsz = *maxszp;
+
+  if (maxsz < strlen(buf) + strlen(append)) {
+    buf = realloc(buf, maxsz * 2);
+    maxsz *= 2;
+  }
+  strcat(buf, append);
+
+  *bufp = buf;
+  *maxszp = maxsz;
+}
+
 char* histogram_to_string(Histogram* hist_) {
   const double mult = 100.0 / hist_->num_;
   size_t r_size = 1024;
@@ -127,37 +141,20 @@ char* histogram_to_string(Histogram* hist_) {
   snprintf(buf, sizeof(buf),
             "Count: %.0f  Average: %.4f  StdDiv: %.2f\n",
             hist_->num_, average(hist_), standard_deviation(hist_));
-  if (r_size < strlen(r) + strlen(buf)) {
-    r = realloc(r, r_size * 2);
-    r_size *= 2;
-  }
+  append_to_buffer(&r, buf, &r_size);
 
-  strcat(r, buf);
   snprintf(buf, sizeof(buf),
             "Min: %.4f  Median: %.4f  Max: %.4f\n",
             (hist_->num_ == 0.0 ? 0.0 : hist_->min_),
             percentile(hist_, 50), hist_->max_);
-  if (r_size < strlen(r) + strlen(buf)) {
-    r = realloc(r, r_size * 2);
-    r_size *= 2;
-  }
+  append_to_buffer(&r, buf, &r_size);
 
-  strcat(r, buf);
   snprintf(buf, sizeof(buf),
             "50th: %.4f  90th: %.4f  99th: %.4f\n",
 	    percentile(hist_, 50),
 	    percentile(hist_, 90),
 	    percentile(hist_, 99));
-  if (r_size < strlen(r) + strlen(buf)) {
-    r = realloc(r, r_size * 2);
-    r_size *= 2;
-  }
-
-  strcat(r, buf);
-  if (r_size < strlen(r) + strlen(buf)) {
-    r = realloc(r, r_size * 2);
-    r_size *= 2;
-  }
+  append_to_buffer(&r, buf, &r_size);
 
   strcat(r, "------------------------------------------------------\n");
   for (b = 0; b < kNumBuckets; b++) {
@@ -170,11 +167,7 @@ char* histogram_to_string(Histogram* hist_) {
               hist_->buckets_[b],
               mult * hist_->buckets_[b],
               mult * sum);
-    if (r_size < strlen(r) + strlen(buf)) {
-      r = realloc(r, r_size * 2);
-      r_size *= 2;
-    }
-    strcat(r, buf);
+    append_to_buffer(&r, buf, &r_size);
 
     /* Add hash marks based on percentage; 20 marks for 100%. */
     marks = (int)(20 * (hist_->buckets_[b] / hist_->num_) + 0.5);
