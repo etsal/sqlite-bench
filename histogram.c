@@ -158,7 +158,9 @@ char* histogram_to_string(Histogram* hist_) {
 
   strcat(r, "------------------------------------------------------\n");
   for (b = 0; b < kNumBuckets; b++) {
-    if (hist_->buckets_[b] <= 0.0) continue;
+    if (hist_->buckets_[b] <= 0.0)
+      continue;
+
     sum += hist_->buckets_[b];
     snprintf(buf, sizeof(buf),
               "[ %7.0f, %7.0f ) %7.0f %7.3f%% %7.3f%%",
