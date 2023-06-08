@@ -56,53 +56,79 @@ static double percentile(Histogram* hist_, double p) {
 }
 
 static double average(Histogram* hist_) {
-  if (hist_->num_ == 0.0) return 0;
-  return hist_->sum_ / hist_->num_;
+  return (hist_->num_ == 0.0) ? 0 : hist_->sum_ / hist_->num_;
 }
 
 static double standard_deviation(Histogram* hist_) {
-  if (hist_->num_ == 0.0) return 0;
-  double variance = (hist_->sum_squares_ * hist_->num_ - hist_->sum_ * hist_->sum_) / (hist_->num_ * hist_->num_);
+  double variance;
+
+  if (hist_->num_ == 0.0)
+    return 0;
+
+  variance = (hist_->sum_squares_ * hist_->num_ - hist_->sum_ * hist_->sum_) / (hist_->num_ * hist_->num_);
   return sqrt(variance);
 }
 
 void histogram_clear(Histogram* hist_) {
+  int i;
+
   hist_->min_ = bucket_limit[kNumBuckets - 1];
   hist_->max_ = 0;
   hist_->num_ = 0;
   hist_->sum_ = 0;
   hist_->sum_squares_ = 0;
-  for (int i = 0; i < kNumBuckets; i++) {
+
+  for (i = 0; i < kNumBuckets; i++)
     hist_->buckets_[i] = 0;
-  }
 }
+
 void histogram_add(Histogram* hist_, double value) {
-  int b = 0;
-  while (b < kNumBuckets - 1 && bucket_limit[b] <= value) {
-    b++;
-  }
+  int b;
+
+  for (b = 0; b < kNumBuckets - 1 && bucket_limit[b] <= value; b++)
+    ;
+
   hist_->buckets_[b] += 1.0;
-  if (hist_->min_ > value) hist_->min_ = value;
-  if (hist_->max_ < value) hist_->max_ = value;
+  if (hist_->min_ > value)
+    hist_->min_ = value;
+
+  if (hist_->max_ < value)
+    hist_->max_ = value;
+
   hist_->num_++;
   hist_->sum_ += value;
   hist_->sum_squares_ += (value * value);
 }
+
 void histogram_merge(Histogram* hist_, const Histogram* other_) {
-  if (other_->min_ < hist_->min_) hist_->min_ = other_->min_;
-  if (other_->max_ > hist_->max_) hist_->max_ = other_->max_;
+  int b;
+
+  if (other_->min_ < hist_->min_)
+    hist_->min_ = other_->min_;
+  if (other_->max_ > hist_->max_)
+    hist_->max_ = other_->max_;
+
   hist_->num_ += other_->num_;
   hist_->sum_ += other_->sum_;
   hist_->sum_squares_ += other_->sum_squares_;
-  for (int b = 0; b < kNumBuckets; b++) {
+
+  for (b = 0; b < kNumBuckets; b++)
     hist_->buckets_[b] += other_->buckets_[b];
-  }
 }
+
 char* histogram_to_string(Histogram* hist_) {
+  const double mult = 100.0 / hist_->num_;
   size_t r_size = 1024;
-  char* r = malloc(sizeof(char) * 1024);
-  strcpy(r, "");
+  double sum = 0;
   char buf[200];
+  int marks;
+  char* r;
+  int b;
+  int i;
+
+  r = malloc(sizeof(char) * 1024);
+  strcpy(r, "");
+
   snprintf(buf, sizeof(buf),
             "Count: %.0f  Average: %.4f  StdDiv: %.2f\n",
             hist_->num_, average(hist_), standard_deviation(hist_));
@@ -110,6 +136,7 @@ char* histogram_to_string(Histogram* hist_) {
     r = realloc(r, r_size * 2);
     r_size *= 2;
   }
+
   strcat(r, buf);
   snprintf(buf, sizeof(buf),
             "Min: %.4f  Median: %.4f  Max: %.4f\n",
@@ -119,15 +146,15 @@ char* histogram_to_string(Histogram* hist_) {
     r = realloc(r, r_size * 2);
     r_size *= 2;
   }
+
   strcat(r, buf);
   if (r_size < strlen(r) + strlen(buf)) {
     r = realloc(r, r_size * 2);
     r_size *= 2;
   }
+
   strcat(r, "------------------------------------------------------\n");
-  const double mult = 100.0 / hist_->num_;
-  double sum = 0;
-  for (int b = 0; b < kNumBuckets; b++) {
+  for (b = 0; b < kNumBuckets; b++) {
     if (hist_->buckets_[b] <= 0.0) continue;
     sum += hist_->buckets_[b];
     snprintf(buf, sizeof(buf),
@@ -144,14 +171,17 @@ char* histogram_to_string(Histogram* hist_) {
     strcat(r, buf);
 
     /* Add hash marks based on percentage; 20 marks for 100%. */
-    int marks = (int)(20 * (hist_->buckets_[b] / hist_->num_) + 0.5);
+    marks = (int)(20 * (hist_->buckets_[b] / hist_->num_) + 0.5);
     if (r_size < strlen(r) + marks + 1) {
       r = realloc(r, r_size * 2);
       r_size *= 2;
     }
-    for (int i = 0; i < marks; i++)
+
+    for (i = 0; i < marks; i++)
       strcat(r, "#");
     strcat(r, "\n");
+
   }
+
   return r;
 }
