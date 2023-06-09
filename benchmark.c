@@ -459,6 +459,8 @@ static void benchmark_prefill(int value_size, int entries) {
   int j, k;
 
   sqlite3_stmt *replace_stmt = stmts[STMT_REPLACE];
+
+  stmt_runonce(stmts[STMT_TSTART]);
   /* Create and execute SQL statements */
   for (j = 0; j < entries; j++) {
     value = rand_gen_generate(&gen_, value_size);
@@ -480,6 +482,8 @@ static void benchmark_prefill(int value_size, int entries) {
 
     stmt_clear_and_reset(replace_stmt);
   }
+
+  stmt_runonce(stmts[STMT_TEND]);
 }
 
 static void benchmark_writebatch(int iter, int order, int num_entries, 
