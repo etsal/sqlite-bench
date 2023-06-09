@@ -527,9 +527,8 @@ void warn_ops(int num_entries) {
   }
 }
 
-static void benchmark_write(bool write_sync, int order, int num_entries,
-		int value_size, int entries_per_batch) {
-  const bool synchronous = FLAGS_WAL_enabled || write_sync;
+static void benchmark_write(int order, int num_entries, int value_size,
+	int entries_per_batch) {
   const bool transaction = FLAGS_transaction;
   int i;
 
@@ -537,8 +536,6 @@ static void benchmark_write(bool write_sync, int order, int num_entries,
 
   sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
   sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
-
-  set_pragma_str("synchronous", (synchronous) ? "NORMAL" : "OFF");
 
   for (i = 0; i < num_entries; i += entries_per_batch) {
     /* Begin write transaction */
@@ -608,8 +605,8 @@ static void benchmark_read(int order, int entries_per_batch) {
   }
 }
 
-static void benchmark_readwrite(bool write_sync, int order, int num_entries,
-                  int value_size, int entries_per_batch, int write_percent) {
+static void benchmark_readwrite(int order, int num_entries, int value_size,
+	int entries_per_batch, int write_percent) {
   bool transaction = FLAGS_transaction;
   enum OpKind kind;
   int i;
@@ -618,8 +615,6 @@ static void benchmark_readwrite(bool write_sync, int order, int num_entries,
 
   sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
   sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
-
-  set_pragma_str("synchronous", (write_sync) ? "FULL" : "OFF");
 
   for (i = 0; i < num_entries; i += entries_per_batch) {
     /* Begin write transaction */
@@ -677,9 +672,12 @@ int get_order(char *suffix) {
   return !strncmp(suffix, "seq", sizeof("seq") - 1) ? SEQUENTIAL : RANDOM;
 }
 
-int get_sync(char *name) {
+void set_sync(char *name) {
   int len = sizeof("sync") - 1;
-  return !strncmp(&name[strlen(name) - len], "sync", len);
+  if (!strncmp(&name[strlen(name) - len], "sync", len))
+    set_pragma_str("synchronous", "NORMAL");
+  else
+    set_pragma_str("synchronous", "OFF");
 }
 
 int get_batch_size(char* name) {
@@ -688,8 +686,8 @@ int get_batch_size(char* name) {
 }
 
 void benchmark_run() {
-  int batch_size, sync;
   char* benchmarks;
+  int batch_size;
   char *suffix;
 
   print_header();
@@ -712,7 +710,7 @@ void benchmark_run() {
     }
     bytes_ = 0;
     /* Get the sync and batch size by checking the suffix of the benchmark. */
-    sync = get_sync(name);
+    set_sync(name);
     batch_size = get_batch_size(name);
 
     start();
@@ -720,10 +718,10 @@ void benchmark_run() {
     /* Get the benchmark type and ordering by parsing the prefix of the name. */
     if (!strncmp(name, "fill", sizeof("fill") - 1)) {
       suffix = &name[sizeof("fill") - 1];
-      benchmark_write(sync, get_order(suffix), num_, FLAGS_value_size, batch_size);
+      benchmark_write(get_order(suffix), num_, FLAGS_value_size, batch_size);
     } else if (!strncmp(name, "rw", sizeof("rw") - 1)) {
       suffix = &name[sizeof("rw") - 1];
-      benchmark_readwrite(sync, get_order(suffix), num_, FLAGS_value_size, batch_size, FLAGS_write_percent);
+      benchmark_readwrite(get_order(suffix), num_, FLAGS_value_size, batch_size, FLAGS_write_percent);
     } else if (!strncmp(name, "read", sizeof("read") - 1)) {
       suffix = &name[sizeof("read") - 1];
       benchmark_read(get_order(suffix), 1);
