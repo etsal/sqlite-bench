@@ -386,14 +386,13 @@ static void benchmark_open_slos(void) {
     load_extension();
 
   snprintf(file_name, sizeof(file_name),
-		  "file:%sdbbench_sqlite3-%d.db?ptr=%p&sz=%d&max=%ld&oid=%d&threshold=%d",
+		  "file:%sdbbench_sqlite3-%d.db?ptr=%p&sz=%d&max=%ld&oid=%d",
 		  tmp_dir,
  		  db_num_,
 		  addr,
 		  0,
 		  (long) FLAGS_mmap_size_mb * 1024 * 1024,
-		  FLAGS_oid,
-		  FLAGS_checkpoint_granularity * 4096);
+		  FLAGS_oid);
 
   status = sqlite3_open_v2(file_name, &db_, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_URI, FLAGS_extension);
   if (status) {
