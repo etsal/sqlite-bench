@@ -697,9 +697,6 @@ void benchmark_run() {
   print_header();
   benchmark_open();
 
-  /* Prepopulate the database. */
-  benchmark_prefill(num_ / 1000, 1000);
-
   benchmarks = FLAGS_benchmarks;
   while (benchmarks != NULL) {
     char* sep = strchr(benchmarks, ',');
@@ -716,6 +713,9 @@ void benchmark_run() {
     /* Get the sync and batch size by checking the suffix of the benchmark. */
     set_sync(name);
     batch_size = get_batch_size(name);
+
+    /* Prepopulate the database. */
+    benchmark_prefill(num_ / 1000, 1000);
 
     start();
 
