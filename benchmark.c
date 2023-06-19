@@ -4,6 +4,8 @@
 
 #include "bench.h"
 
+#define RAWFILE ("/tmp/raw")
+
 enum Order {
   SEQUENTIAL,
   RANDOM
@@ -33,6 +35,7 @@ Raw raw_;
 RandomGenerator gen_;
 Random rand_;
 int done_;
+FILE* rawfile_;
 
 inline
 static void exec_error_check(int status, char *err_msg) {
@@ -191,7 +194,7 @@ static void stop(const char* name) {
           (!message_ || !strcmp(message_, "") ? "" : " "),
           (!message_) ? "" : message_);
   if (FLAGS_raw) {
-    raw_print(stdout, &raw_);
+    raw_print(rawfile_, &raw_);
   }
   if (FLAGS_histogram) {
     fprintf(stderr, "Microseconds per write op:\n%s\n",
@@ -698,6 +701,9 @@ void benchmark_run() {
   print_header();
   benchmark_open();
 
+  if (FLAGS_raw)
+	  rawfile_ = fopen(RAWFILE, "w+");
+
   benchmarks = FLAGS_benchmarks;
   while (benchmarks != NULL) {
     char* sep = strchr(benchmarks, ',');
@@ -738,5 +744,8 @@ void benchmark_run() {
     wal_checkpoint(db_);
     stop(name);
   }
+
+  if (FLAGS_raw)
+	  fclose(rawfile_);
 }
 
