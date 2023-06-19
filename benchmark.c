@@ -681,9 +681,9 @@ int get_order(char *suffix) {
 void set_sync(char *name) {
   const int synclen = sizeof("sync") - 1;
   const int batchlen = sizeof("batch") - 1;
-  if (!strncmp(&name[strlen(name) - synclen], "sync", synclen) &&
+  if (!strncmp(&name[strlen(name) - synclen], "sync", synclen) ||
       !strncmp(&name[strlen(name) - batchlen], "batch", batchlen))
-    set_pragma_str("synchronous", "NORMAL");
+    set_pragma_str("synchronous", "FULL");
   else
     set_pragma_str("synchronous", "OFF");
 }
