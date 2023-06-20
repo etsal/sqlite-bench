@@ -67,8 +67,11 @@ typedef struct RandomGenerator {
 //   readrand100K  -- read N/1000 100K values in sequential order in async mode
 extern char* FLAGS_benchmarks;
 
-// Number of key/values to place in database
-extern int FLAGS_num;
+// Number of key/values to place in the database.
+extern int FLAGS_num_keys;
+
+// Number of operations to do for the benchmark.
+extern long FLAGS_num_ops;
 
 // Number of read operations to do.  If negative, do FLAGS_num reads.
 extern int FLAGS_reads;

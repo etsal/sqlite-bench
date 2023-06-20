@@ -23,7 +23,8 @@ enum OpKind{
 
 sqlite3* db_;
 int db_num_;
-int num_;
+int num_keys_;
+long num_ops_;
 int reads_;
 double start_;
 double last_op_finish_;
@@ -128,11 +129,12 @@ static void print_environment() {
 static void print_header() {
   const int kKeySize = 16;
   print_environment();
+  fprintf(stderr, "Entries:    %d\n", num_keys_);
   fprintf(stderr, "Keys:       %d bytes each\n", kKeySize);
   fprintf(stderr, "Values:     %d bytes each\n", FLAGS_value_size);  
-  fprintf(stderr, "Entries:    %d\n", num_);
+  fprintf(stderr, "Operations:    %ld\n", num_ops_);
   fprintf(stderr, "RawSize:    %.1f MB (estimated)\n",
-            (((int64_t)(kKeySize + FLAGS_value_size) * num_)
+            (((int64_t)(kKeySize + FLAGS_value_size) * num_keys_)
             / 1048576.0));
   print_warnings();
   fprintf(stderr, "------------------------------------------------\n");
@@ -488,7 +490,7 @@ static void benchmark_prefill(int value_size, int entries) {
   stmt_runonce(stmts[STMT_TEND]);
 }
 
-static void benchmark_writebatch(int iter, int order, int num_entries, 
+static void benchmark_writebatch(int iter, int order, long num_ops, int num_entries, 
 		int value_size, int entries_per_batch) {
 
   char key[100];
@@ -502,7 +504,7 @@ static void benchmark_writebatch(int iter, int order, int num_entries,
     value = rand_gen_generate(&gen_, value_size);
 
     /* Create values for key-value pair */
-    k = (order == SEQUENTIAL) ? iter + j :
+    k = (order == SEQUENTIAL) ? ((iter + j) % num_entries) :
                   (rand_next(&rand_) % num_entries);
     snprintf(key, sizeof(key), "%016d", k);
 
@@ -526,14 +528,14 @@ static void benchmark_writebatch(int iter, int order, int num_entries,
 }
 
 void warn_ops(int num_entries) {
-  if (num_entries != num_) {
+  if (num_entries != num_ops_) {
     char* msg = malloc(sizeof(char) * 100);
     snprintf(msg, 100, "(%d ops)", num_entries);
     message_ = msg;
   }
 }
 
-static void benchmark_write(int order, int num_entries, int value_size,
+static void benchmark_write(int order, long num_ops, int num_entries, int value_size,
 	int entries_per_batch) {
   const bool transaction = FLAGS_transaction;
   int i;
@@ -543,12 +545,12 @@ static void benchmark_write(int order, int num_entries, int value_size,
   sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
   sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
 
-  for (i = 0; i < num_entries; i += entries_per_batch) {
+  for (i = 0; i < num_ops; i += entries_per_batch) {
     /* Begin write transaction */
     if (transaction)
       stmt_runonce(begin_trans_stmt);
 
-    benchmark_writebatch(i, order, num_entries, value_size, entries_per_batch);
+    benchmark_writebatch(i, order, num_ops, num_entries, value_size, entries_per_batch);
 
     /* End write transaction */
     if (transaction)
@@ -569,7 +571,8 @@ static void benchmark_readbatch(int iter, int order, int entries_per_batch)
   /* Create and execute SQL statements */
   for (j = 0; j < entries_per_batch; j++) {
     /* Create key value */
-    k = (order == SEQUENTIAL) ? iter + j : (rand_next(&rand_) % reads_);
+    k = (order == SEQUENTIAL) ? (iter + j) % num_keys_ : 
+	    (rand_next(&rand_) % num_keys_);
     snprintf(key, sizeof(key), "%016d", k);
 
     /* Bind key value into read_stmt */
@@ -611,7 +614,7 @@ static void benchmark_read(int order, int entries_per_batch) {
   }
 }
 
-static void benchmark_readwrite(int order, int num_entries, int value_size,
+static void benchmark_readwrite(int order, long num_ops, int num_entries, int value_size,
 	int entries_per_batch, int write_percent) {
   bool transaction = FLAGS_transaction;
   enum OpKind kind;
@@ -622,14 +625,14 @@ static void benchmark_readwrite(int order, int num_entries, int value_size,
   sqlite3_stmt *begin_trans_stmt = stmts[STMT_TSTART];
   sqlite3_stmt *end_trans_stmt = stmts[STMT_TEND];
 
-  for (i = 0; i < num_entries; i += entries_per_batch) {
+  for (i = 0; i < num_ops; i += entries_per_batch) {
     /* Begin write transaction */
     if (transaction)
       stmt_runonce(begin_trans_stmt);
 
     kind = rand_uniform(&rand_, 100) < write_percent;
     if (kind == WRITE)
-    	benchmark_writebatch(i, order, num_entries, value_size, entries_per_batch);
+    	benchmark_writebatch(i, order, num_ops, num_entries, value_size, entries_per_batch);
     else
     	benchmark_readbatch(i, order, entries_per_batch);
 
@@ -645,8 +648,9 @@ static void benchmark_readwrite(int order, int num_entries, int value_size,
 void benchmark_init() {
   db_ = NULL;
   db_num_ = 0;
-  num_ = FLAGS_num;
-  reads_ = FLAGS_reads < 0 ? FLAGS_num : FLAGS_reads;
+  num_keys_ = FLAGS_num_keys;
+  num_ops_ = FLAGS_num_ops;
+  reads_ = FLAGS_reads < 0 ? FLAGS_num_ops : FLAGS_reads;
   bytes_ = 0;
   rand_gen_init(&gen_, FLAGS_compression_ratio);
   rand_init(&rand_, 301);;
@@ -722,17 +726,17 @@ void benchmark_run() {
     batch_size = get_batch_size(name);
 
     /* Prepopulate the database. */
-    benchmark_prefill(num_ / 1000, 1000);
+    benchmark_prefill(num_keys_ / 1000, 1000);
 
     start();
 
     /* Get the benchmark type and ordering by parsing the prefix of the name. */
     if (!strncmp(name, "fill", sizeof("fill") - 1)) {
       suffix = &name[sizeof("fill") - 1];
-      benchmark_write(get_order(suffix), num_, FLAGS_value_size, batch_size);
+      benchmark_write(get_order(suffix), num_ops_, num_keys_, FLAGS_value_size, batch_size);
     } else if (!strncmp(name, "rw", sizeof("rw") - 1)) {
       suffix = &name[sizeof("rw") - 1];
-      benchmark_readwrite(get_order(suffix), num_, FLAGS_value_size, batch_size, FLAGS_write_percent);
+      benchmark_readwrite(get_order(suffix), num_ops_, num_keys_, FLAGS_value_size, batch_size, FLAGS_write_percent);
     } else if (!strncmp(name, "read", sizeof("read") - 1)) {
       suffix = &name[sizeof("read") - 1];
       benchmark_read(get_order(suffix), 1);

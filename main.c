@@ -7,8 +7,11 @@
 // Comma-separated list of operations to run in the specified order
 char* FLAGS_benchmarks;
 
-// Number of key/values to place in database
-int FLAGS_num;
+// Number of key/values to place in the database.
+int FLAGS_num_keys;
+
+// Number of operations to do for the benchmark.
+long FLAGS_num_ops;
 
 // Number of read operations to do.  If negative, do FLAGS_num reads.
 int FLAGS_reads;
@@ -100,7 +103,6 @@ void init() {
     "rwseq,"
     "rwseqsync,"
     ;
-  FLAGS_num = 1000000;
   FLAGS_reads = -1;
   FLAGS_value_size = 100;
   FLAGS_histogram = false;
@@ -119,6 +121,8 @@ void init() {
   FLAGS_db = NULL;
   FLAGS_batch_size = 1024;
   FLAGS_extension = NULL;
+  FLAGS_num_keys = 50000;
+  FLAGS_num_ops = 50000;
 }
 
 void print_usage(const char* argv0) {
@@ -130,7 +134,8 @@ void print_usage(const char* argv0) {
   fprintf(stderr, "  --raw={0,1}\t\t\toutput raw data\n");
   fprintf(stderr, "  --compression_ratio=DOUBLE\tcompression ratio\n");
   fprintf(stderr, "  --use_existing_db={0,1}\tuse existing database\n");
-  fprintf(stderr, "  --num=INT\t\t\tnumber of entries\n");
+  fprintf(stderr, "  --num_keys=INT\t\t\tnumber of keys\n");
+  fprintf(stderr, "  --num_ops=INT\t\t\tnumber of operations\n");
   fprintf(stderr, "  --reads=INT\t\t\tnumber of reads\n");
   fprintf(stderr, "  --value_size=INT\t\tvalue size\n");
   fprintf(stderr, "  --no_transaction\t\tdisable transaction\n");
@@ -169,6 +174,7 @@ int main(int argc, char** argv) {
 
   for (int i = 1; i < argc; i++) {
     double d;
+    long l;
     int n;
     char junk;
     if (starts_with(argv[i], "--benchmarks=")) {
@@ -184,8 +190,6 @@ int main(int argc, char** argv) {
     } else if (sscanf(argv[i], "--use_existing_db=%d%c", &n, &junk) == 1 &&
                (n == 0 || n == 1)) {
       FLAGS_use_existing_db = n;
-    } else if (sscanf(argv[i], "--num=%d%c", &n, &junk) == 1) {
-      FLAGS_num = n;
     } else if (sscanf(argv[i], "--reads=%d%c", &n, &junk) == 1) {
       FLAGS_reads = n;
     } else if (sscanf(argv[i], "--value_size=%d%c", &n, &junk) == 1) {
@@ -198,6 +202,10 @@ int main(int argc, char** argv) {
       FLAGS_page_size = n;
     } else if (sscanf(argv[i], "--num_pages=%d%c", &n, &junk) == 1) {
       FLAGS_num_pages = n;
+    } else if (sscanf(argv[i], "--num_ops=%ld%c", &l, &junk) == 1) {
+      FLAGS_num_ops = l;
+    } else if (sscanf(argv[i], "--num_keys=%d%c", &n, &junk) == 1) {
+      FLAGS_num_keys = n;
     } else if (sscanf(argv[i], "--WAL_enabled=%d%c", &n, &junk) == 1 &&
                (n == 0 || n == 1)) {
       FLAGS_WAL_enabled = n;
@@ -232,5 +240,4 @@ int main(int argc, char** argv) {
   benchmark_run();
   benchmark_fini();
 
-  return 0;
-}
+  return 0;}
