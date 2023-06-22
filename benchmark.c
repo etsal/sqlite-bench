@@ -367,9 +367,9 @@ static void benchmark_open_regular(void) {
 }
 
 static void benchmark_open_slos(void) {
+  void *addr, *gap, *end_addr;
   char *tmp_dir = "/tmp/";
   char file_name[100];
-  void *addr;
   int status;
 
   setup_sls(FLAGS_oid);
@@ -380,6 +380,8 @@ static void benchmark_open_slos(void) {
 	perror("mmap");
 	exit(1);
   }
+  endaddr = addr + FLAGS_mmap_size_mb * 1024 * 1024;
+  gap = mmap(endaddr, PAGE_SIZE, PROT_NONE, MAP_GUARD | MAP_FIXED | MAP_EXCL, -1 , 0);
 
   /* 
    * Trigger a page fault to force the creation 
