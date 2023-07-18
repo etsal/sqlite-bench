@@ -380,8 +380,8 @@ static void benchmark_open_slos(void) {
 	perror("mmap");
 	exit(1);
   }
-  endaddr = addr + FLAGS_mmap_size_mb * 1024 * 1024;
-  gap = mmap(endaddr, PAGE_SIZE, PROT_NONE, MAP_GUARD | MAP_FIXED | MAP_EXCL, -1 , 0);
+  end_addr = addr + FLAGS_mmap_size_mb * 1024 * 1024;
+  gap = mmap(end_addr, PAGE_SIZE, PROT_NONE, MAP_GUARD | MAP_FIXED | MAP_EXCL, -1 , 0);
 
   /* 
    * Trigger a page fault to force the creation 
