@@ -220,7 +220,7 @@ sqlite3_stmt *stmts[STMT_TYPES];
 
 char *stmt_text[STMT_TYPES] = {
    "BEGIN TRANSACTION",
-   "END TRANSACTION",
+   "COMMIT TRANSACTION",
    "SELECT * FROM test WHERE key = ?",
    "REPLACE INTO test (key, value) VALUES (?, ?)",
 };
