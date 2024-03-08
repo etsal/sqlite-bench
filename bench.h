@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -18,7 +19,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
-#include <sls.h>
+#include <sls_wal.h>
 #include <sqlite3.h>
 #include <unistd.h>
 

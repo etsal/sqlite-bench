@@ -285,43 +285,6 @@ static void stmt_clear_and_reset(sqlite3_stmt *stmt) {
   error_check(status);
 }
 
-void setup_sls(int oid) {
-  uint64_t epoch;
-  int error;
-
-  struct sls_attr attr = {
-    .attr_target = SLS_OSD,
-    .attr_mode = SLS_DELTA,
-    .attr_period = 0,
-    .attr_flags = SLSATTR_IGNUNLINKED,
-    .attr_amplification = 1,
-  };
-
-  error = sls_partadd(oid, attr, -1);
-  if (error != 0) {
-	  fprintf(stderr, "sls_partadd: error %d\n", error);
-	  exit(1);
-  }
-
-  error = sls_attach(oid, getpid());
-  if (error != 0) {
-	  fprintf(stderr, "sls_attach: error %d\n", error);
-	  exit(1);
-  }
-
-  error = sls_checkpoint_epoch(oid, true, &epoch);
-  if (error != 0) {
-	  fprintf(stderr, "sls_checkpoint: error %d\n", error);
-	  exit(1);
-  }
-
-  error = sls_epochwait(oid, epoch, true, NULL);
-  if (error != 0) {
-	  fprintf(stderr, "sls_epochwait: error %d\n", error);
-	  exit(1);
-  }
-}
-
 static void load_extension(void) {
   sqlite3 *tmpdb;
   char *err_msg;
@@ -367,21 +330,33 @@ static void benchmark_open_regular(void) {
 }
 
 static void benchmark_open_slos(void) {
-  void *addr, *gap, *end_addr;
+  void *addr;
   char *tmp_dir = "/tmp/";
   char file_name[100];
   int status;
+  int fd;
 
-  setup_sls(FLAGS_oid);
+  status = slsfs_sas_create("/sqlite.sas", FLAGS_mmap_size_mb * 1024 * 1024);
+  if (status != 0) {
+	printf("slsfs_sas_create failed (error %d)\n", status);
+	exit(1);
+  }
 
-  addr = mmap(NULL, FLAGS_mmap_size_mb * 1024 * 1024, PROT_READ | PROT_WRITE, 
-		  MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+  fd = open("/sqlite.sas", O_RDWR, 0666);
+  if (fd < 0) {
+  	perror("open");
+  	exit(1);
+  }
+
+  status = slsfs_sas_map(fd, (void **)&addr);
+  if (status != 0) {
+  	printf("slsfs_sas_map failed\n");
+  	exit(1);
+  }
   if (addr == NULL) {
 	perror("mmap");
 	exit(1);
   }
-  end_addr = addr + FLAGS_mmap_size_mb * 1024 * 1024;
-  gap = mmap(end_addr, PAGE_SIZE, PROT_NONE, MAP_GUARD | MAP_FIXED | MAP_EXCL, -1 , 0);
 
   /* 
    * Trigger a page fault to force the creation 
@@ -393,13 +368,13 @@ static void benchmark_open_slos(void) {
     load_extension();
 
   snprintf(file_name, sizeof(file_name),
-		  "file:%sdbbench_sqlite3-%d.db?ptr=%p&sz=%d&max=%ld&oid=%d",
+		  "file:%sdbbench_sqlite3-%d.db?ptr=%p&sz=%d&max=%ld&fd=%d",
 		  tmp_dir,
  		  db_num_,
 		  addr,
 		  0,
 		  (long) FLAGS_mmap_size_mb * 1024 * 1024,
-		  FLAGS_oid);
+		  fd);
 
   status = sqlite3_open_v2(file_name, &db_, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_URI, FLAGS_extension);
   if (status) {
