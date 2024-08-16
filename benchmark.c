@@ -332,17 +332,23 @@ static void benchmark_open_regular(void) {
 static void benchmark_open_slos(void) {
   void *addr;
   char *tmp_dir = "/tmp/";
+
+#ifndef USE_MSNP_OBJSNP
+  char *name = "/sqlite.sas";
+#else
+  char *name = "/memsnap/sqlite.sas";
+#endif
   char file_name[100];
   int status;
   int fd;
 
-  status = slsfs_sas_create("/sqlite.sas", FLAGS_mmap_size_mb * 1024 * 1024);
+  status = slsfs_sas_create(name, FLAGS_mmap_size_mb * 1024 * 1024);
   if (status != 0) {
 	printf("slsfs_sas_create failed (error %d)\n", status);
 	exit(1);
   }
 
-  fd = open("/sqlite.sas", O_RDWR, 0666);
+  fd = open(name, O_RDWR, 0666);
   if (fd < 0) {
   	perror("open");
   	exit(1);

@@ -19,7 +19,11 @@
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
+#ifndef DUSE_MSNP_OBJSNP
 #include <sls_wal.h>
+#else
+#include <memsnap.h>
+#endif
 #include <sqlite3.h>
 #include <unistd.h>
 

@@ -15,10 +15,10 @@ SQLITE_FLAGS=-DSQLITE_DQS=0 \
 	-DSQLITE_MMAP_READWRITE \
 	-DSQLITE_MAX_MMAP_SIZE=1073741824
 INCLUDEDIR=-I$(SQLITEDIR)/build
-LDFLAGS=-pthread -ldl -lm -lsls
+LDFLAGS=-pthread -ldl -lm 
 CC=clang
 
-all: db_bench
+all: db_bench db_bench_objsnap
 
 test: db_bench
 	echo `sysctl hw.model`
@@ -27,7 +27,10 @@ test: db_bench
 	rm -f *.db *.db-wal
 
 db_bench: $(SRCS) 
-	$(CC) $(INCLUDEDIR) $(CFLAGS) $(SQLITE_FLAGS) $(LDFLAGS) $(SRCS) -o $@
+	$(CC) $(INCLUDEDIR) $(CFLAGS) $(SQLITE_FLAGS) $(LDFLAGS) $(SRCS) -lsls -o $@
+
+db_bench_objsnap: $(SRCS) 
+	$(CC) $(INCLUDEDIR) $(CFLAGS) $(SQLITE_FLAGS) $(LDFLAGS) $(SRCS) -DUSE_MSNP_OBJSNP -lmsnp -o $@
 
 clean:
 	rm -rf db_bench* *.o *.db *.db-wal
